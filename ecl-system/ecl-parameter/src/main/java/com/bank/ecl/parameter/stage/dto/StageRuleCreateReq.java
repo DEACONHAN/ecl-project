@@ -1,0 +1,29 @@
+package com.bank.ecl.parameter.stage.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
+
+@Data
+public class StageRuleCreateReq {
+    @NotBlank
+    private String schemeId;
+
+    @NotBlank
+    private String groupId;
+
+    @NotBlank
+    private String ruleType;
+
+    private String stageFrom;
+
+    @NotBlank
+    private String stageTo;
+
+    @NotNull
+    private Integer priority;
+
+    private Integer observationDays;
+
+    private String conditions;
+}
