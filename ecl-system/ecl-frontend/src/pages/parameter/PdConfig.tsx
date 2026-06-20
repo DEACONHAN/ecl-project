@@ -27,7 +27,7 @@ import { useSearchParams, useOutletContext } from 'react-router-dom';
 import ReactEChartsCore from 'echarts-for-react';
 import { schemeApi, type SchemeVO } from '../../api/scheme';
 import { pdApi, type ScenarioVO, type PdCurveVO } from '../../api/pd';
-import { PageHeader, Panel, GroupSelector } from '../../components';
+import { PageHeader, Panel } from '../../components';
 import { riskGroupApi, type RiskGroupVO } from '../../api/riskGroup';
 
 const PdConfig: React.FC = () => {
