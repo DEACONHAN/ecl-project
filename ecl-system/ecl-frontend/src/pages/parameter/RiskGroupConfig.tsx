@@ -114,6 +114,8 @@ const RiskGroupConfig: React.FC = () => {
     await riskGroupApi.updateDetails(selectedSchemeId, selectedGroupId, newDetails);
     message.success('已删除');
     setDetails(newDetails);
+    const res = await riskGroupApi.listByScheme(selectedSchemeId);
+    setGroups((res.data as any)?.data || res.data || []);
   };
 
   const selectedGroup = groups.find((g) => g.groupId === selectedGroupId);
@@ -139,27 +141,6 @@ const RiskGroupConfig: React.FC = () => {
       </div>
     );
   }
-
-  const detailColumns = [
-    { title: '优先级', dataIndex: 'priority', key: 'priority', width: 70 },
-    { title: '业务条线', dataIndex: 'businessLine', key: 'businessLine', render: (v: string) => v || <span className="wildcard">*</span> },
-    { title: '客户类型', dataIndex: 'customerType', key: 'customerType', render: (v: string) => v || <span className="wildcard">*</span> },
-    { title: '产品类型', dataIndex: 'productType', key: 'productType', render: (v: string) => v || <span className="wildcard">*</span> },
-    { title: '行业', dataIndex: 'industryCode', key: 'industryCode', width: 80, render: (v: string) => v || <span className="wildcard">*</span> },
-    { title: '地区', dataIndex: 'regionCode', key: 'regionCode', width: 80, render: (v: string) => v || <span className="wildcard">*</span> },
-    { title: '担保类型', dataIndex: 'collateralType', key: 'collateralType', render: (v: string) => v || <span className="wildcard">*</span> },
-    {
-      title: '操作', key: 'action', width: 100,
-      render: (_: any, record: RiskGroupDetailVO) => (
-        <Space size={0}>
-          <Button type="link" size="small" icon={<EditOutlined />}
-            onClick={() => { setEditingDetail(record); detailForm.setFieldsValue(record); setDetailModalOpen(true); }} />
-          <Button type="link" size="small" danger icon={<DeleteOutlined />}
-            onClick={() => handleDeleteDetail(record)} />
-        </Space>
-      ),
-    },
-  ];
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 32px' }}>
