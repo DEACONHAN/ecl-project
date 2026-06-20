@@ -1,0 +1,29 @@
+.status-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.st-draft {
+  background: #f3f4f6;
+  color: var(--color-text-secondary);
+}
+
+.st-published {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.st-effective {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.st-expired {
+  background: #fef2f2;
+  color: #dc2626;
+}
