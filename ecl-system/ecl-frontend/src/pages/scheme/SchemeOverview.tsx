@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
-import { Descriptions, Button, Space, Modal, Form, Input, Select, message, Spin, Typography } from 'antd';
-import { EditOutlined, SendOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Button, Space, Modal, Form, Input, Select, message, Spin, Typography } from 'antd';
+import { EditOutlined, SendOutlined, DeleteOutlined } from '@ant-design/icons';
 import { schemeApi, type SchemeVO } from '../../api/scheme';
 import { Panel, StatusTag } from '../../components';
 
@@ -57,6 +57,9 @@ const SchemeOverview: React.FC = () => {
           status: s.status,
         });
       }
+    } catch (err) {
+      console.error(err);
+      message.error('加载方案失败');
     } finally {
       setLoading(false);
     }
@@ -245,7 +248,6 @@ const SchemeOverview: React.FC = () => {
       </Modal>
 
       <style>{`
-        .info-item { }
         .info-label {
           font-size: 11px;
           color: var(--color-text-muted);
