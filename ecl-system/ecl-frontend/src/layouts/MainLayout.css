@@ -1,0 +1,230 @@
+/* ─── App Shell ─── */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-bg);
+}
+
+/* ─── Top Header ─── */
+.top-header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
+  z-index: 100;
+  position: relative;
+}
+
+.top-header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-primary-100) 20%,
+    var(--color-primary-100) 80%,
+    transparent
+  );
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.header-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 32px;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  gap: 4px;
+}
+
+.header-logo {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-right: 24px;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+}
+
+.header-logo::before {
+  content: 'E';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.header-logo span {
+  color: var(--color-text);
+  font-weight: 400;
+}
+
+.nav-item {
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  font-weight: 450;
+  position: relative;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.nav-item:hover {
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+}
+
+.nav-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-weight: 500;
+}
+
+/* ─── Main Layout ─── */
+.main-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+  width: 224px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xs);
+}
+
+.sidebar-scheme {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+
+.sidebar-scheme .ss-code {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+  letter-spacing: 0.03em;
+}
+
+.sidebar-scheme .ss-name {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 2px;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 8px 0;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  margin: 0 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  transition: all var(--transition-fast);
+  font-weight: 450;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  width: auto;
+  font-family: inherit;
+}
+
+.sidebar-item:hover {
+  background: var(--color-bg-alt);
+  color: var(--color-text);
+}
+
+.sidebar-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  border-left-color: var(--color-primary);
+  font-weight: 500;
+}
+
+.sidebar-item .si-icon {
+  width: 20px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.sidebar-item.active .si-icon {
+  opacity: 1;
+}
+
+/* ─── Content Area ─── */
+.content-area {
+  flex: 1;
+  overflow: auto;
+  background: var(--color-bg);
+}
+
+/* ─── Scrollbar ─── */
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .header-inner {
+    padding: 0 16px;
+  }
+  .sidebar {
+    width: 100%;
+    position: absolute;
+    top: 52px;
+    left: 0;
+    bottom: 0;
+    z-index: 90;
+  }
+}
