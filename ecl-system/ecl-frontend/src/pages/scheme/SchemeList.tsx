@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Modal, Form, Input, Select, message, Dropdown } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, Select, message } from 'antd';
 import { PlusOutlined, CopyOutlined, SendOutlined, DeleteOutlined, ExperimentOutlined, EyeOutlined } from '@ant-design/icons';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { schemeApi, type SchemeVO } from '../../api/scheme';
@@ -32,6 +32,9 @@ const SchemeList: React.FC = () => {
     try {
       const res = await schemeApi.list(statusFilter);
       setData((res.data as any)?.data || res.data || []);
+    } catch (err) {
+      console.error(err);
+      message.error('加载失败');
     } finally {
       setLoading(false);
     }
