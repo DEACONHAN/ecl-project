@@ -156,7 +156,7 @@ const SchemeOverview: React.FC = () => {
                 title: '基于本方案复制',
                 content: '将基于当前方案创建一份全新的 DRAFT 方案。',
                 onOk: async () => {
-                  await schemeApi.copy('基于 ' + scheme.schemeCode + ' 复制');
+                  await schemeApi.copyFrom(scheme.schemeId, '基于 ' + scheme.schemeCode + ' 复制');
                   message.success('复制成功');
                   navigate('/schemes');
                 },

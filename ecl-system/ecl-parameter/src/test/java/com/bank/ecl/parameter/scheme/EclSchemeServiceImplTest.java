@@ -208,6 +208,38 @@ class EclSchemeServiceImplTest {
         assertTrue(entityCaptor.getValue().getDescription().contains("SCH_001"));
     }
 
+    @Test
+    void copyFromScheme_ShouldCopySpecifiedSourceScheme() {
+        EclSchemeEntity source = createTestEntity("SCH_003", "PUBLISHED");
+        source.setSchemeId("source-scheme-id");
+        source.setSchemeVersion("v2.1");
+        source.setSchemeName("2026年Q3方案");
+        when(schemeMapper.selectById("source-scheme-id")).thenReturn(source);
+        when(schemeMapper.selectMaxSchemeSeq()).thenReturn(3);
+        doNothing().when(schemeCopyService).copyAll(anyString(), anyString());
+
+        SchemeVO result = schemeService.copyFromScheme("source-scheme-id", "基于本方案复制");
+
+        assertNotNull(result);
+        assertEquals("DRAFT", result.getStatus());
+        assertEquals("SCH_004", result.getSchemeCode());
+        assertEquals("v2.2", result.getSchemeVersion());
+        assertTrue(result.getSchemeName().contains("副本"));
+        verify(schemeMapper).insert(entityCaptor.capture());
+        EclSchemeEntity inserted = entityCaptor.getValue();
+        assertEquals("基于本方案复制", inserted.getDescription());
+        verify(schemeCopyService).copyAll(eq("source-scheme-id"), eq(inserted.getSchemeId()));
+    }
+
+    @Test
+    void copyFromScheme_WhenSourceNotExists_ShouldThrow() {
+        when(schemeMapper.selectById("missing-scheme-id")).thenReturn(null);
+
+        assertThrows(EclException.class,
+                () -> schemeService.copyFromScheme("missing-scheme-id", "desc"));
+        verify(schemeCopyService, never()).copyAll(anyString(), anyString());
+    }
+
     // ==================== listSchemes ====================
 
     @Test

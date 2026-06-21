@@ -54,6 +54,12 @@ public class EclSchemeController {
         return Result.success(schemeService.copyFromEffective(description));
     }
 
+    @PostMapping("/{schemeId}/copy")
+    public Result<SchemeVO> copyFromScheme(@PathVariable String schemeId,
+                                           @RequestParam(required = false) String description) {
+        return Result.success(schemeService.copyFromScheme(schemeId, description));
+    }
+
     @PutMapping("/{schemeId}")
     public Result<SchemeVO> updateScheme(@PathVariable String schemeId,
                                          @Valid @RequestBody SchemeCreateReq req) {

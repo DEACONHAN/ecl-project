@@ -11,6 +11,8 @@ public interface EclSchemeService {
 
     SchemeVO copyFromEffective(String description);
 
+    SchemeVO copyFromScheme(String sourceSchemeId, String description);
+
     SchemeVO getScheme(String schemeId);
 
     List<SchemeVO> listSchemes(String status);

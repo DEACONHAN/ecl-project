@@ -35,6 +35,8 @@ export const schemeApi = {
     request.post<SchemeVO>('/v1/schemes', data),
   copy: (description: string) =>
     request.post<SchemeVO>('/v1/schemes/copy', null, { params: { description } }),
+  copyFrom: (id: string, description?: string) =>
+    request.post<SchemeVO>(`/v1/schemes/${id}/copy`, null, { params: { description } }),
   update: (id: string, data: { schemeName: string; description?: string }) =>
     request.put<SchemeVO>(`/v1/schemes/${id}`, data),
   publish: (id: string, immediate: boolean, effectiveDate?: string) =>
