@@ -1,5 +1,6 @@
 package com.bank.ecl.engine.core;
 
+import com.bank.ecl.engine.stage.StageResult;
 import lombok.Data;
 
 /**
@@ -46,6 +47,34 @@ public class AssetInput {
     /** "Y" = 异常（命中兜底分组 GRP_DEFAULT） */
     private String groupException;
 
+    // ========== 6.2 阶段划分引擎入参（上游数据层填充）==========
+
+    /** 上期计算的阶段（首次计算时为 null，引擎内视为 STAGE_1） */
+    private Stage lastStage;
+
+    /** 逾期天数 */
+    private Integer overdueDays;
+
+    /** CRR/国际评级（如 CRR1~CRR8） */
+    private String crrRating;
+
+    /** 五级分类（正常/关注/次级/可疑/损失） */
+    private String fiveCategory;
+
+    /** 是否违约 */
+    private Boolean defaultFlag;
+
+    /** 舆情严重程度（轻度/中度/重度） */
+    private String mediaSentiment;
+
+    /** 评级下降级数（上游预计算） */
+    private Integer ratingDropLevels;
+
+    // ========== 6.2 阶段划分引擎输出 ==========
+
+    /** 阶段判定结果 */
+    private StageResult stageResult;
+
     // ========== 预留字段（后续引擎使用）==========
-    // lastStage, stageResult, pdDetails, totalEad, lgdValue, eclValue ...
+    // pdDetails, totalEad, lgdValue, eclValue ...
 }
