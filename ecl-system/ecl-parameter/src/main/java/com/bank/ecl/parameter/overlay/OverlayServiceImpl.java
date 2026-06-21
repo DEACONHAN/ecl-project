@@ -14,6 +14,7 @@ import com.bank.ecl.parameter.overlay.dto.OverlayMatchTestResp;
 import com.bank.ecl.parameter.overlay.dto.OverlayRuleCreateReq;
 import com.bank.ecl.parameter.overlay.dto.OverlayRuleVO;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -77,7 +78,11 @@ public class OverlayServiceImpl implements OverlayService {
             throw new EclException(ErrorCode.ECL_006, "schemeId 不能为空");
         }
         if (groupId == null || groupId.isBlank()) {
-            throw new EclException(ErrorCode.ECL_006, "groupId 不能为空");
+            LambdaQueryWrapper<OverlayRuleEntity> wrapper = new LambdaQueryWrapper<OverlayRuleEntity>()
+                    .eq(OverlayRuleEntity::getSchemeId, schemeId)
+                    .orderByAsc(OverlayRuleEntity::getGroupId)
+                    .orderByAsc(OverlayRuleEntity::getPriority);
+            return overlayRuleMapper.selectList(wrapper).stream().map(this::toVO).collect(Collectors.toList());
         }
         LambdaQueryWrapper<OverlayRuleEntity> wrapper = new LambdaQueryWrapper<OverlayRuleEntity>()
                 .eq(OverlayRuleEntity::getSchemeId, schemeId)
@@ -93,10 +98,11 @@ public class OverlayServiceImpl implements OverlayService {
     @Transactional(rollbackFor = Exception.class)
     public OverlayRuleVO createRule(OverlayRuleCreateReq req) {
         checkSchemeDraft(req.getSchemeId());
-        validateConditions(req.getConditions());
+        String conditions = normalizeInputConditions(req.getConditions());
+        validateConditions(conditions);
         validateDates(req.getEffectiveDate(), req.getExpiryDate());
 
-        OverlayRuleEntity entity = buildEntity(req);
+        OverlayRuleEntity entity = buildEntity(req, conditions, defaultEffectiveDate(req.getEffectiveDate()));
         overlayRuleMapper.insert(entity);
         return toVO(entity);
     }
@@ -111,7 +117,8 @@ public class OverlayServiceImpl implements OverlayService {
             throw new EclException(ErrorCode.ECL_006, "管理层叠加规则不存在: " + ruleId);
         }
         checkSchemeDraft(entity.getSchemeId());
-        validateConditions(req.getConditions());
+        String conditions = normalizeInputConditions(req.getConditions());
+        validateConditions(conditions);
         validateDates(req.getEffectiveDate(), req.getExpiryDate());
 
         // 更新字段
@@ -130,15 +137,9 @@ public class OverlayServiceImpl implements OverlayService {
         if (req.getPriority() != null) {
             entity.setPriority(req.getPriority());
         }
-        if (req.getConditions() != null) {
-            entity.setConditions(req.getConditions());
-        }
-        if (req.getEffectiveDate() != null) {
-            entity.setEffectiveDate(req.getEffectiveDate());
-        }
-        if (req.getExpiryDate() != null) {
-            entity.setExpiryDate(req.getExpiryDate());
-        }
+        entity.setConditions(conditions);
+        entity.setEffectiveDate(defaultEffectiveDate(req.getEffectiveDate()));
+        entity.setExpiryDate(req.getExpiryDate());
 
         overlayRuleMapper.updateById(entity);
         return toVO(entity);
@@ -175,7 +176,7 @@ public class OverlayServiceImpl implements OverlayService {
         // 2. 逐条匹配
         List<OverlayRuleVO> matchedRules = new ArrayList<>();
         for (OverlayRuleEntity rule : allRules) {
-            if (ConditionEvaluator.evaluate(rule.getConditions(), fieldValues)) {
+            if (ConditionEvaluator.evaluate(normalizeJsonColumn(rule.getConditions()), fieldValues)) {
                 matchedRules.add(toVO(rule));
             }
         }
@@ -229,6 +230,7 @@ public class OverlayServiceImpl implements OverlayService {
         if (entity == null) return null;
         OverlayRuleVO vo = new OverlayRuleVO();
         vo.setRuleId(entity.getRuleId());
+        vo.setOverlayId(entity.getRuleId());
         vo.setSchemeId(entity.getSchemeId());
         vo.setGroupId(entity.getGroupId());
         vo.setOverlayType(entity.getOverlayType());
@@ -236,13 +238,13 @@ public class OverlayServiceImpl implements OverlayService {
         vo.setAdjustmentType(entity.getAdjustmentType());
         vo.setAdjustmentValue(entity.getAdjustmentValue());
         vo.setPriority(entity.getPriority());
-        vo.setConditions(entity.getConditions());
+        vo.setConditions(normalizeJsonColumn(entity.getConditions()));
         vo.setEffectiveDate(entity.getEffectiveDate());
         vo.setExpiryDate(entity.getExpiryDate());
         return vo;
     }
 
-    private OverlayRuleEntity buildEntity(OverlayRuleCreateReq req) {
+    private OverlayRuleEntity buildEntity(OverlayRuleCreateReq req, String conditions, LocalDate effectiveDate) {
         OverlayRuleEntity entity = new OverlayRuleEntity();
         entity.setSchemeId(req.getSchemeId());
         entity.setGroupId(req.getGroupId());
@@ -251,9 +253,32 @@ public class OverlayServiceImpl implements OverlayService {
         entity.setAdjustmentType(req.getAdjustmentType());
         entity.setAdjustmentValue(req.getAdjustmentValue());
         entity.setPriority(req.getPriority());
-        entity.setConditions(req.getConditions());
-        entity.setEffectiveDate(req.getEffectiveDate());
+        entity.setConditions(conditions);
+        entity.setEffectiveDate(effectiveDate);
         entity.setExpiryDate(req.getExpiryDate());
         return entity;
+    }
+
+    private String normalizeInputConditions(String conditions) {
+        return conditions == null || conditions.isBlank() ? "{}" : conditions;
+    }
+
+    private LocalDate defaultEffectiveDate(LocalDate effectiveDate) {
+        return effectiveDate != null ? effectiveDate : LocalDate.now();
+    }
+
+    private String normalizeJsonColumn(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(value);
+            if (node.isTextual()) {
+                return node.asText();
+            }
+        } catch (Exception ignored) {
+            return value;
+        }
+        return value;
     }
 }
