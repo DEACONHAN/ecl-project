@@ -9,6 +9,7 @@ import PdConfig from '../pages/parameter/PdConfig';
 import CcfConfig from '../pages/parameter/CcfConfig';
 import LgdConfig from '../pages/parameter/LgdConfig';
 import OverlayConfig from '../pages/parameter/OverlayConfig';
+import TrialCenter from '../pages/trial/TrialCenter';
 
 const Placeholder: React.FC<{ title: string }> = ({ title }) => (
   <div style={{
@@ -35,7 +36,7 @@ const router = createBrowserRouter([
       { path: 'parameters/lgd', element: <LgdConfig /> },
       { path: 'parameters/overlay', element: <OverlayConfig /> },
       { path: 'jobs', element: <Placeholder title="跑批监控" /> },
-      { path: 'trial', element: <Placeholder title="试算中心" /> },
+      { path: 'trial', element: <TrialCenter /> },
     ],
   },
 ]);
