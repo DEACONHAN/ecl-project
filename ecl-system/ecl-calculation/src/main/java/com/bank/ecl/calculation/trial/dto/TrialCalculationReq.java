@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 public class TrialCalculationReq {
@@ -45,4 +46,7 @@ public class TrialCalculationReq {
     private BigDecimal totalLimit;
     private String commitmentType;
     private Integer commitmentDays;
+
+    /** 多借据模式：按客户维度跑批 */
+    private List<AssetInputReq> assets;
 }
