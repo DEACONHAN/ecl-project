@@ -17,8 +17,11 @@ public class StageRuleCreateReq {
 
     private String stageFrom;
 
-    @NotBlank
     private String stageTo;
+
+    private String sourceStage;
+
+    private String targetStage;
 
     @NotNull
     private Integer priority;
@@ -26,4 +29,6 @@ public class StageRuleCreateReq {
     private Integer observationDays;
 
     private String conditions;
+
+    private String jsonCondition;
 }

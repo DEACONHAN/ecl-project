@@ -14,6 +14,8 @@ import com.bank.ecl.parameter.stage.dto.CrrDropRuleCreateReq;
 import com.bank.ecl.parameter.stage.dto.CrrDropRuleVO;
 import com.bank.ecl.parameter.stage.dto.StageRuleCreateReq;
 import com.bank.ecl.parameter.stage.dto.StageRuleVO;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class StageRuleServiceImpl implements StageRuleService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final StageRuleMapper stageRuleMapper;
     private final CrrRatingDropRuleMapper crrRatingDropRuleMapper;
@@ -52,8 +56,7 @@ public class StageRuleServiceImpl implements StageRuleService {
             return;
         }
         try {
-            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-            mapper.readTree(conditions);
+            OBJECT_MAPPER.readTree(conditions);
         } catch (Exception e) {
             throw new EclException(ErrorCode.ECL_006, "conditions JSON 格式错误: " + e.getMessage());
         }
@@ -78,17 +81,18 @@ public class StageRuleServiceImpl implements StageRuleService {
     @Transactional(rollbackFor = Exception.class)
     public StageRuleVO createStageRule(StageRuleCreateReq req) {
         checkSchemeDraft(req.getSchemeId());
-        validateConditions(req.getConditions());
+        String conditions = firstPresent(req.getConditions(), req.getJsonCondition());
+        validateConditions(conditions);
 
         StageRuleEntity entity = new StageRuleEntity();
         entity.setSchemeId(req.getSchemeId());
         entity.setGroupId(req.getGroupId());
         entity.setRuleType(req.getRuleType());
-        entity.setStageFrom(req.getStageFrom());
-        entity.setStageTo(req.getStageTo());
+        entity.setStageFrom(firstPresent(req.getStageFrom(), req.getSourceStage()));
+        entity.setStageTo(firstPresent(req.getStageTo(), req.getTargetStage()));
         entity.setPriority(req.getPriority());
         entity.setObservationDays(req.getObservationDays());
-        entity.setConditions(req.getConditions());
+        entity.setConditions(conditions);
 
         stageRuleMapper.insert(entity);
         return toStageRuleVO(entity);
@@ -102,14 +106,15 @@ public class StageRuleServiceImpl implements StageRuleService {
             throw new EclException(ErrorCode.ECL_006, "阶段规则不存在: " + ruleId);
         }
         checkSchemeDraft(entity.getSchemeId());
-        validateConditions(req.getConditions());
+        String conditions = firstPresent(req.getConditions(), req.getJsonCondition());
+        validateConditions(conditions);
 
         entity.setRuleType(req.getRuleType());
-        entity.setStageFrom(req.getStageFrom());
-        entity.setStageTo(req.getStageTo());
+        entity.setStageFrom(firstPresent(req.getStageFrom(), req.getSourceStage()));
+        entity.setStageTo(firstPresent(req.getStageTo(), req.getTargetStage()));
         entity.setPriority(req.getPriority());
         entity.setObservationDays(req.getObservationDays());
-        entity.setConditions(req.getConditions());
+        entity.setConditions(conditions);
 
         stageRuleMapper.updateById(entity);
         return toStageRuleVO(entity);
@@ -150,7 +155,7 @@ public class StageRuleServiceImpl implements StageRuleService {
         entity.setSchemeId(req.getSchemeId());
         entity.setGroupId(req.getGroupId());
         entity.setCurrentRating(req.getCurrentRating());
-        entity.setDropThreshold(req.getDropThreshold());
+        entity.setDropThreshold(firstPresent(req.getDropThreshold(), req.getDowngradeThreshold()));
 
         crrRatingDropRuleMapper.insert(entity);
         return toCrrDropRuleVO(entity);
@@ -166,7 +171,7 @@ public class StageRuleServiceImpl implements StageRuleService {
         checkSchemeDraft(entity.getSchemeId());
 
         entity.setCurrentRating(req.getCurrentRating());
-        entity.setDropThreshold(req.getDropThreshold());
+        entity.setDropThreshold(firstPresent(req.getDropThreshold(), req.getDowngradeThreshold()));
 
         crrRatingDropRuleMapper.updateById(entity);
         return toCrrDropRuleVO(entity);
@@ -193,19 +198,48 @@ public class StageRuleServiceImpl implements StageRuleService {
         vo.setRuleType(entity.getRuleType());
         vo.setStageFrom(entity.getStageFrom());
         vo.setStageTo(entity.getStageTo());
+        vo.setSourceStage(entity.getStageFrom());
+        vo.setTargetStage(entity.getStageTo());
         vo.setPriority(entity.getPriority());
         vo.setObservationDays(entity.getObservationDays());
-        vo.setConditions(entity.getConditions());
+        String conditions = normalizeJsonColumn(entity.getConditions());
+        vo.setConditions(conditions);
+        vo.setJsonCondition(conditions);
         return vo;
     }
 
     private CrrDropRuleVO toCrrDropRuleVO(CrrRatingDropRuleEntity entity) {
         CrrDropRuleVO vo = new CrrDropRuleVO();
         vo.setDropRuleId(entity.getDropRuleId());
+        vo.setRuleId(entity.getDropRuleId());
         vo.setSchemeId(entity.getSchemeId());
         vo.setGroupId(entity.getGroupId());
         vo.setCurrentRating(entity.getCurrentRating());
         vo.setDropThreshold(entity.getDropThreshold());
+        vo.setDowngradeThreshold(entity.getDropThreshold());
         return vo;
+    }
+
+    private String firstPresent(String primary, String fallback) {
+        return primary != null ? primary : fallback;
+    }
+
+    private Integer firstPresent(Integer primary, Integer fallback) {
+        return primary != null ? primary : fallback;
+    }
+
+    private String normalizeJsonColumn(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+        try {
+            JsonNode node = OBJECT_MAPPER.readTree(value);
+            if (node.isTextual()) {
+                return node.asText();
+            }
+        } catch (Exception ignored) {
+            return value;
+        }
+        return value;
     }
 }
