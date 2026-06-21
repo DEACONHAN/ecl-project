@@ -34,10 +34,13 @@ const BenchmarkCurveTab: React.FC<{
   const [form] = Form.useForm();
 
   const load = useCallback(async () => {
-    if (!selectedSchemeId) return;
+    if (!selectedSchemeId || !selectedGroupId) {
+      setCurves([]);
+      return;
+    }
     setLoading(true);
     try {
-      const res = await lgdApi.listCurves(selectedSchemeId, selectedGroupId || undefined);
+      const res = await lgdApi.listCurves(selectedSchemeId, selectedGroupId);
       setCurves((res.data as any)?.data || res.data || []);
     } finally {
       setLoading(false);
@@ -50,11 +53,25 @@ const BenchmarkCurveTab: React.FC<{
 
   const handleSave = async () => {
     const values = await form.validateFields();
+    if (!selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
+    const nextCurves = editing
+      ? curves.map((curve) => (curve.curveId === editing.curveId ? { ...curve, ...values } : curve))
+      : [...curves, { ...values, schemeId: selectedSchemeId, groupId: selectedGroupId, curveId: `tmp_${Date.now()}` }];
+    await lgdApi.batchSaveCurves(
+      selectedSchemeId,
+      selectedGroupId,
+      nextCurves.map((curve) => ({
+        collateralType: curve.collateralType,
+        productType: curve.productType,
+        lgdBaseValue: curve.lgdBaseValue,
+      })),
+    );
     if (editing) {
-      await lgdApi.updateCurve(editing.curveId!, { ...values, schemeId: selectedSchemeId });
       message.success('更新成功');
     } else {
-      await lgdApi.createCurve({ ...values, schemeId: selectedSchemeId, groupId: selectedGroupId || undefined });
       message.success('创建成功');
     }
     setModalOpen(false);
@@ -68,7 +85,20 @@ const BenchmarkCurveTab: React.FC<{
       title: '确认删除',
       content: '确定要删除这条基准曲线数据吗？',
       onOk: async () => {
-        await lgdApi.deleteCurve(id);
+        if (!selectedGroupId) {
+          message.warning('请先选择风险分组');
+          return;
+        }
+        const nextCurves = curves.filter((curve) => curve.curveId !== id);
+        await lgdApi.batchSaveCurves(
+          selectedSchemeId,
+          selectedGroupId,
+          nextCurves.map((curve) => ({
+            collateralType: curve.collateralType,
+            productType: curve.productType,
+            lgdBaseValue: curve.lgdBaseValue,
+          })),
+        );
         message.success('已删除');
         load();
       },
@@ -76,15 +106,17 @@ const BenchmarkCurveTab: React.FC<{
   };
 
   const handleBatchSave = async () => {
+    if (!selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
     try {
       const payload = curves.map((c) => ({
-        curveId: c.curveId,
-        groupId: c.groupId,
         collateralType: c.collateralType,
         productType: c.productType,
         lgdBaseValue: c.lgdBaseValue,
       }));
-      await lgdApi.batchSaveCurves(selectedSchemeId, payload);
+      await lgdApi.batchSaveCurves(selectedSchemeId, selectedGroupId, payload);
       message.success('批量保存成功');
       load();
     } catch {
@@ -130,6 +162,10 @@ const BenchmarkCurveTab: React.FC<{
 
   return (
     <>
+      {!selectedGroupId ? (
+        <div className="ecl-empty-row">请选择一个风险分组以维护 LGD 基准曲线</div>
+      ) : (
+        <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, gap: 8 }}>
         <Button icon={<PlusOutlined />} type="primary" onClick={() => { setEditing(null); form.resetFields(); setModalOpen(true); }}>
           新增
@@ -166,6 +202,8 @@ const BenchmarkCurveTab: React.FC<{
           )}
         </tbody>
       </table>
+        </>
+      )}
 
       <Modal
         title={editing ? '编辑基准曲线' : '新增基准曲线'}
@@ -224,11 +262,19 @@ const CollateralDiscountTab: React.FC<{
       message.error('折扣率范围必须在 0 ~ 1 之间');
       return;
     }
+    const nextList = editing
+      ? list.map((item) => (item.discountId === editing.discountId ? { ...item, ...values } : item))
+      : [...list, { ...values, schemeId: selectedSchemeId, discountId: `tmp_${Date.now()}` }];
+    await lgdApi.batchSaveDiscounts(
+      selectedSchemeId,
+      nextList.map((item) => ({
+        collateralType: item.collateralType,
+        discountRate: item.discountRate,
+      })),
+    );
     if (editing) {
-      await lgdApi.updateDiscount(editing.discountId!, { ...values, schemeId: selectedSchemeId });
       message.success('更新成功');
     } else {
-      await lgdApi.createDiscount({ ...values, schemeId: selectedSchemeId });
       message.success('创建成功');
     }
     setModalOpen(false);
@@ -241,13 +287,24 @@ const CollateralDiscountTab: React.FC<{
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这条押品折扣率吗？',
-      onOk: async () => { await lgdApi.deleteDiscount(id); message.success('已删除'); load(); },
+      onOk: async () => {
+        const nextList = list.filter((item) => item.discountId !== id);
+        await lgdApi.batchSaveDiscounts(
+          selectedSchemeId,
+          nextList.map((item) => ({
+            collateralType: item.collateralType,
+            discountRate: item.discountRate,
+          })),
+        );
+        message.success('已删除');
+        load();
+      },
     });
   };
 
   const handleBatchSave = async () => {
     try {
-      const payload = list.map((d) => ({ discountId: d.discountId, collateralType: d.collateralType, discountRate: d.discountRate }));
+      const payload = list.map((d) => ({ collateralType: d.collateralType, discountRate: d.discountRate }));
       await lgdApi.batchSaveDiscounts(selectedSchemeId, payload);
       message.success('批量保存成功');
       load();
@@ -388,21 +445,34 @@ const DepreciationTab: React.FC<{
 
   const handleSave = async () => {
     const values = await form.validateFields();
+    if (!selectedType) return;
     // 校验 depreciationRate 0~1
     if (values.depreciationRate < 0 || values.depreciationRate > 1) {
       message.error('折旧率范围必须在 0 ~ 1 之间');
       return;
     }
+    const nextList = editing
+      ? list.map((item) => (item.depreciationId === editing.depreciationId ? { ...item, ...values } : item))
+      : [
+          ...list,
+          {
+            ...values,
+            schemeId: selectedSchemeId,
+            collateralType: selectedType,
+            depreciationId: `tmp_${Date.now()}`,
+          },
+        ];
+    await lgdApi.batchSaveDepreciations(
+      selectedSchemeId,
+      selectedType,
+      nextList.map((item) => ({
+        yearOffset: item.yearOffset,
+        depreciationRate: item.depreciationRate,
+      })),
+    );
     if (editing) {
-      await lgdApi.updateDepreciation(editing.depreciationId!, { ...values, schemeId: selectedSchemeId });
       message.success('更新成功');
     } else {
-      await lgdApi.createDepreciation({
-        ...values,
-        schemeId: selectedSchemeId,
-        collateralType: selectedType!,
-        groupId: selectedGroupId || undefined,
-      });
       message.success('创建成功');
     }
     setModalOpen(false);
@@ -415,7 +485,20 @@ const DepreciationTab: React.FC<{
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除这条折旧率吗？',
-      onOk: async () => { await lgdApi.deleteDepreciation(id); message.success('已删除'); loadData(); },
+      onOk: async () => {
+        if (!selectedType) return;
+        const nextList = list.filter((item) => item.depreciationId !== id);
+        await lgdApi.batchSaveDepreciations(
+          selectedSchemeId,
+          selectedType,
+          nextList.map((item) => ({
+            yearOffset: item.yearOffset,
+            depreciationRate: item.depreciationRate,
+          })),
+        );
+        message.success('已删除');
+        loadData();
+      },
     });
   };
 
@@ -423,7 +506,6 @@ const DepreciationTab: React.FC<{
     if (!selectedType) return;
     try {
       const payload = list.map((d) => ({
-        depreciationId: d.depreciationId,
         yearOffset: d.yearOffset,
         depreciationRate: d.depreciationRate,
       }));

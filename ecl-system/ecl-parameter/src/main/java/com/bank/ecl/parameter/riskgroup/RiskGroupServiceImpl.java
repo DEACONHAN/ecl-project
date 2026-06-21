@@ -131,10 +131,11 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         checkSchemeDraft(req.getSchemeId());
 
         // 生成 groupId 和 groupCode
-        int maxSeq = riskGroupMapper.selectMaxRiskGroupSeq();
         String groupId = UuidGenerator.uuid();
         String groupCode = req.getGroupCode();
+        int maxSeq = 0;
         if (groupCode == null || groupCode.isBlank()) {
+            maxSeq = riskGroupMapper.selectMaxRiskGroupSeq();
             groupCode = UuidGenerator.generateBizCode("GRP", maxSeq + 1);
         }
 
@@ -144,7 +145,7 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         entity.setSchemeId(req.getSchemeId());
         entity.setGroupName(req.getGroupName());
         entity.setDescription(req.getDescription());
-        entity.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : maxSeq + 1);
+        entity.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : nextSortOrder(req.getSchemeId(), maxSeq));
         entity.setCreatedAt(LocalDateTime.now());
 
         riskGroupMapper.insert(entity);
@@ -159,6 +160,14 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         }
 
         return getGroup(req.getSchemeId(), groupId);
+    }
+
+    private Integer nextSortOrder(String schemeId, int maxSeq) {
+        if (maxSeq > 0) {
+            return maxSeq + 1;
+        }
+        return Math.toIntExact(riskGroupMapper.selectCount(
+                new LambdaQueryWrapper<RiskGroupEntity>().eq(RiskGroupEntity::getSchemeId, schemeId))) + 1;
     }
 
     // ======================== 更新 ========================

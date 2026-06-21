@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,6 +75,7 @@ class RiskGroupServiceImplTest {
         assertEquals(10, inserted.getSortOrder());
         assertEquals("CORP", result.getGroupCode());
         assertEquals(10, result.getSortOrder());
+        verify(riskGroupMapper, never()).selectMaxRiskGroupSeq();
     }
 
     @Test

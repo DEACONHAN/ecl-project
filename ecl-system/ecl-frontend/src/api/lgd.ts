@@ -66,8 +66,12 @@ export const lgdApi = {
     request.put<LgdCurveVO>(`/v1/parameters/lgd/curves/${id}`, data),
   deleteCurve: (id: string) =>
     request.delete(`/v1/parameters/lgd/curves/${id}`),
-  batchSaveCurves: (schemeId: string, curves: Omit<LgdCurveVO, 'schemeId' | 'createdAt' | 'updatedAt'>[]) =>
-    request.put('/v1/parameters/lgd/curves/batch', { schemeId, curves }),
+  batchSaveCurves: (
+    schemeId: string,
+    groupId: string,
+    curves: Omit<LgdCurveVO, 'curveId' | 'schemeId' | 'groupId' | 'createdAt' | 'updatedAt'>[],
+  ) =>
+    request.post('/v1/parameters/lgd/curves/batch', { schemeId, groupId, curves }),
 
   // ─── 押品折扣率 CRUD ───
   listDiscounts: (schemeId: string) =>
@@ -78,8 +82,11 @@ export const lgdApi = {
     request.put<LgdCollateralDiscountVO>(`/v1/parameters/lgd/collateral-discounts/${id}`, data),
   deleteDiscount: (id: string) =>
     request.delete(`/v1/parameters/lgd/collateral-discounts/${id}`),
-  batchSaveDiscounts: (schemeId: string, discounts: Omit<LgdCollateralDiscountVO, 'schemeId' | 'createdAt' | 'updatedAt'>[]) =>
-    request.put('/v1/parameters/lgd/collateral-discounts/batch', { schemeId, discounts }),
+  batchSaveDiscounts: (
+    schemeId: string,
+    discounts: Omit<LgdCollateralDiscountVO, 'discountId' | 'schemeId' | 'createdAt' | 'updatedAt'>[],
+  ) =>
+    request.post('/v1/parameters/lgd/collateral-discounts/batch', discounts.map((discount) => ({ ...discount, schemeId }))),
 
   // ─── 押品折旧率 CRUD ───
   listDepreciations: (schemeId: string, collateralType: string, groupId?: string) =>
@@ -92,6 +99,10 @@ export const lgdApi = {
     request.put<LgdDepreciationVO>(`/v1/parameters/lgd/depreciations/${id}`, data),
   deleteDepreciation: (id: string) =>
     request.delete(`/v1/parameters/lgd/depreciations/${id}`),
-  batchSaveDepreciations: (schemeId: string, collateralType: string, depreciations: Omit<LgdDepreciationVO, 'schemeId' | 'collateralType' | 'createdAt' | 'updatedAt'>[]) =>
-    request.put('/v1/parameters/lgd/depreciations/batch', { schemeId, collateralType, depreciations }),
+  batchSaveDepreciations: (
+    schemeId: string,
+    collateralType: string,
+    depreciations: Omit<LgdDepreciationVO, 'depreciationId' | 'schemeId' | 'collateralType' | 'createdAt' | 'updatedAt'>[],
+  ) =>
+    request.post('/v1/parameters/lgd/depreciations/batch', { schemeId, collateralType, items: depreciations }),
 };
