@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +32,17 @@ public class StageConditionEvaluator {
 
     private static final Logger log = LoggerFactory.getLogger(StageConditionEvaluator.class);
     private static final ObjectMapper mapper = new ObjectMapper();
+
+    private static final Map<String, java.lang.reflect.Field> FIELD_CACHE;
+
+    static {
+        Map<String, java.lang.reflect.Field> cache = new HashMap<>();
+        for (java.lang.reflect.Field field : AssetInput.class.getDeclaredFields()) {
+            field.setAccessible(true);
+            cache.put(field.getName(), field);
+        }
+        FIELD_CACHE = Collections.unmodifiableMap(cache);
+    }
 
     private StageConditionEvaluator() {
         // utility class
@@ -216,14 +229,16 @@ public class StageConditionEvaluator {
      * - holdback_days_met → （暂无对应字段，返回 null）
      */
     private static Object getField(AssetInput asset, String fieldName) {
-        // 将 snake_case 转为 camelCase
         String camelName = toCamelCase(fieldName);
+        java.lang.reflect.Field field = FIELD_CACHE.get(camelName);
+        if (field == null) {
+            log.debug("[StageConditionEvaluator] field '{}' (snake: '{}') not found on AssetInput", camelName, fieldName);
+            return null;
+        }
         try {
-            var field = AssetInput.class.getDeclaredField(camelName);
-            field.setAccessible(true);
             return field.get(asset);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            log.debug("Field '{}' not found on AssetInput", camelName);
+        } catch (IllegalAccessException e) {
+            log.debug("[StageConditionEvaluator] cannot access field '{}'", camelName);
             return null;
         }
     }
@@ -261,6 +276,11 @@ public class StageConditionEvaluator {
         if (value instanceof Number n) {
             return n.intValue();
         }
-        return Integer.parseInt(value.toString());
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            log.error("[StageConditionEvaluator] cannot parse integer from value: {}", value);
+            return 0;
+        }
     }
 }

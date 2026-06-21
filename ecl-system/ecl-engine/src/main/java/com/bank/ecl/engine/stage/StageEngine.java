@@ -44,6 +44,10 @@ public class StageEngine implements EclEngine {
     @Override
     public void execute(JobContext ctx) {
         String schemeId = ctx.getSchemeId();
+        if (schemeId == null || schemeId.isBlank()) {
+            log.warn("[6.2 Stage] schemeId is null or blank, skipping engine");
+            return;
+        }
         log.info("[6.2 Stage] start, schemeId={}", schemeId);
 
         // 1. 一次性加载全部规则（所有 group）
@@ -81,7 +85,10 @@ public class StageEngine implements EclEngine {
                 continue;
             }
             for (AssetInput asset : customer.getAssets()) {
-                String groupId = asset.getGroupId();
+                if (asset == null) {
+                    continue;
+                }
+                String groupId = asset.getGroupId() != null ? asset.getGroupId() : "GRP_DEFAULT";
                 StageResult result = determineStage(
                         asset,
                         forwardByGroup.getOrDefault(groupId, Collections.emptyList()),
@@ -114,7 +121,16 @@ public class StageEngine implements EclEngine {
 
         for (StageRuleEntity rule : forwardRules) {
             if (StageConditionEvaluator.evaluate(rule.getConditions(), asset, crrDropMap)) {
-                targetStage = Stage.valueOf(rule.getStageTo());
+                String stageTo = rule.getStageTo();
+                if (stageTo == null) {
+                    continue;
+                }
+                try {
+                    targetStage = Stage.valueOf(stageTo);
+                } catch (IllegalArgumentException e) {
+                    log.error("[6.2 Stage] invalid stageTo '{}' in rule id={}", stageTo, rule.getRuleId());
+                    continue;
+                }
                 triggerType = extractTriggerType(rule.getConditions());
                 exceptionFlag = false;
                 break;

@@ -45,6 +45,10 @@ public class RiskGroupEngine implements EclEngine {
     @Override
     public void execute(JobContext ctx) {
         String schemeId = ctx.getSchemeId();
+        if (schemeId == null || schemeId.isBlank()) {
+            log.warn("[6.1 RiskGroup] schemeId is null or blank, skipping engine");
+            return;
+        }
         log.info("[6.1 RiskGroup] start, schemeId={}", schemeId);
 
         // 1. 一次性加载规则和分组主数据
@@ -66,6 +70,9 @@ public class RiskGroupEngine implements EclEngine {
                 continue;
             }
             for (AssetInput asset : customer.getAssets()) {
+                if (asset == null) {
+                    continue;
+                }
                 String groupId = matchGroup(asset, rules);
                 asset.setGroupId(groupId);
 
