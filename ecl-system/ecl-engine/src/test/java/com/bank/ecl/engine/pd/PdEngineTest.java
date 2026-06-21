@@ -1,0 +1,170 @@
+package com.bank.ecl.engine.pd;
+
+import com.bank.ecl.data.entity.PdCurveEntity;
+import com.bank.ecl.data.entity.PdScenarioEntity;
+import com.bank.ecl.data.mapper.PdCurveMapper;
+import com.bank.ecl.data.mapper.PdScenarioMapper;
+import com.bank.ecl.engine.core.*;
+import com.bank.ecl.engine.stage.StageResult;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class PdEngineTest {
+
+    @Mock private PdScenarioMapper scenarioMapper;
+    @Mock private PdCurveMapper curveMapper;
+    private PdEngine engine;
+
+    @BeforeEach
+    void setUp() { engine = new PdEngine(scenarioMapper, curveMapper); }
+
+    // helpers
+    private PdScenarioEntity scenario(Long id, String type, String name, double weight) {
+        PdScenarioEntity s = new PdScenarioEntity();
+        s.setScenarioId(id); s.setScenarioType(type); s.setScenarioName(name);
+        s.setWeight(BigDecimal.valueOf(weight)); return s;
+    }
+
+    private PdCurveEntity curve(String groupId, String ratingCode, Long scenarioId, double pd) {
+        PdCurveEntity c = new PdCurveEntity();
+        c.setGroupId(groupId); c.setRatingCode(ratingCode);
+        c.setScenarioId(scenarioId); c.setPdValue(BigDecimal.valueOf(pd)); return c;
+    }
+
+    private AssetInput asset(String groupId, String ratingCode, Stage stage) {
+        AssetInput a = new AssetInput();
+        a.setAssetId("AST_001"); a.setGroupId(groupId); a.setRatingCode(ratingCode);
+        a.setStageResult(new StageResult(stage, "test", false));
+        a.setMaturityDate(LocalDate.of(2028, 6, 21));
+        a.setCalcDate(LocalDate.of(2026, 6, 21));
+        return a;
+    }
+
+    private JobContext ctx(String schemeId, AssetInput a) {
+        JobContext c = new JobContext(); c.setSchemeId(schemeId);
+        CustomerContext cust = new CustomerContext();
+        cust.setCustomerId("CUST_001"); cust.setAssets(List.of(a));
+        c.setCustomers(List.of(cust)); return c;
+    }
+
+    @Test
+    void shouldMarkExceptionWhenNoScenarios() {
+        when(scenarioMapper.selectList(any())).thenReturn(Collections.emptyList());
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_1);
+        engine.execute(ctx("SCH_001", a));
+        assertEquals("ECL_001", a.getPdException());
+    }
+
+    @Test
+    void shouldCalcWeightedPdForSingleScenario() {
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        PdCurveEntity c = curve("GRP_001", "AAA", 1L, 0.02);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c));
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_1);
+        engine.execute(ctx("SCH_001", a));
+
+        assertEquals(0.02, a.getPd12m(), 0.0001);
+        assertNull(a.getPdException());
+        assertEquals(1, a.getPdDetails().size());
+    }
+
+    @Test
+    void shouldCalcWeightedPdForThreeScenarios() {
+        PdScenarioEntity s1 = scenario(1L, "OPTIMISTIC", "乐观", 0.2);
+        PdScenarioEntity s2 = scenario(2L, "BASELINE", "基准", 0.6);
+        PdScenarioEntity s3 = scenario(3L, "PESSIMISTIC", "悲观", 0.2);
+        PdCurveEntity c1 = curve("GRP_001", "AAA", 1L, 0.01);
+        PdCurveEntity c2 = curve("GRP_001", "AAA", 2L, 0.02);
+        PdCurveEntity c3 = curve("GRP_001", "AAA", 3L, 0.05);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s1, s2, s3));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c1, c2, c3));
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_1);
+        engine.execute(ctx("SCH_001", a));
+
+        double expected = 0.01 * 0.2 + 0.02 * 0.6 + 0.05 * 0.2; // 0.024
+        assertEquals(expected, a.getPd12m(), 0.0001);
+        assertEquals(3, a.getPdDetails().size());
+    }
+
+    @Test
+    void shouldReturnPd12mForStage1() {
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        PdCurveEntity c = curve("GRP_001", "AAA", 1L, 0.03);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c));
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_1);
+        engine.execute(ctx("SCH_001", a));
+
+        assertEquals(a.getPd12m(), a.getPdLifetime(), 0.0001);
+    }
+
+    @Test
+    void shouldCalcLifetimePdForStage2() {
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        PdCurveEntity c = curve("GRP_001", "AAA", 1L, 0.05);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c));
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_2);
+        // 剩余 24 个月 = 2 年
+        engine.execute(ctx("SCH_001", a));
+
+        double expected = 1 - Math.pow(1 - 0.05, 2.0); // = 0.0975
+        assertEquals(expected, a.getPdLifetime(), 0.0001);
+    }
+
+    @Test
+    void shouldReturnOneForStage3() {
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        PdCurveEntity c = curve("GRP_001", "AAA", 1L, 0.05);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c));
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_3);
+        engine.execute(ctx("SCH_001", a));
+
+        assertEquals(1.0, a.getPdLifetime(), 0.0001);
+    }
+
+    @Test
+    void shouldMarkExceptionWhenCurveMissing() {
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_1);
+        engine.execute(ctx("SCH_001", a));
+
+        assertEquals("ECL_001", a.getPdException());
+    }
+
+    @Test
+    void shouldHandleMissingRating() {
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        PdCurveEntity c = curve("GRP_001", "BBB", 1L, 0.02); // 不同评级
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c));
+
+        AssetInput a = asset("GRP_001", "AAA", Stage.STAGE_1);
+        engine.execute(ctx("SCH_001", a));
+
+        assertEquals("ECL_001", a.getPdException());
+    }
+}
