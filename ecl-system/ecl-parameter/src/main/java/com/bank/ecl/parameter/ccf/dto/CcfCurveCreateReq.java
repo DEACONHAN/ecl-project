@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 @Data
 public class CcfCurveCreateReq {
 
-    @NotBlank(message = "schemeId 不能为空")
     private String schemeId;
 
     @NotBlank(message = "productType 不能为空")
@@ -20,11 +19,13 @@ public class CcfCurveCreateReq {
     @NotBlank(message = "commitmentType 不能为空")
     private String commitmentType;
 
-    @NotNull(message = "commitmentDaysMin 不能为空")
     private Integer commitmentDaysMin;
 
-    @NotNull(message = "commitmentDaysMax 不能为空")
     private Integer commitmentDaysMax;
+
+    private Integer daysMin;
+
+    private Integer daysMax;
 
     @NotNull(message = "ccfValue 不能为空")
     @DecimalMin(value = "0.0", inclusive = true, message = "ccfValue 最小为 0")

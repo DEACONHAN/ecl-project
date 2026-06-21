@@ -76,7 +76,7 @@ const RiskGroupConfig: React.FC = () => {
       content: '删除后该分组下的所有规则也将被删除',
       okButtonProps: { danger: true },
       onOk: async () => {
-        await riskGroupApi.delete(groupId);
+        await riskGroupApi.delete(selectedSchemeId, groupId);
         message.success('已删除');
         if (selectedGroupId === groupId) setSelectedGroupId(null);
         loadGroups();

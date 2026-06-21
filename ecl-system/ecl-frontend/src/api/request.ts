@@ -11,7 +11,7 @@ const request = axios.create({
   baseURL: '/api',
   timeout: 30000,
   adapter: async (config) => {
-    if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_API !== 'false') {
+    if (import.meta.env.DEV && import.meta.env.VITE_USE_MOCK_API === 'true') {
       return createMockResponse(config);
     }
     const adapter = axios.getAdapter(axios.defaults.adapter);

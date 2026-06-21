@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/parameters/stage-rules")
@@ -32,6 +33,15 @@ public class StageRuleController {
     public Result<List<StageRuleVO>> listStageRules(@RequestParam String schemeId,
                                                      @RequestParam String groupId) {
         return Result.success(stageRuleService.listStageRules(schemeId, groupId));
+    }
+
+    @GetMapping("/by-group")
+    public Result<Map<String, Object>> getByGroup(@RequestParam String schemeId,
+                                                  @RequestParam String groupId) {
+        return Result.success(Map.of(
+                "stageRules", stageRuleService.listStageRules(schemeId, groupId),
+                "ratingRules", stageRuleService.listCrrDropRules(schemeId, groupId)
+        ));
     }
 
     @PostMapping

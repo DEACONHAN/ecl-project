@@ -13,6 +13,10 @@ public class RiskGroupCreateReq {
     @NotBlank
     private String groupName;
 
+    private String groupCode;
+
+    private Integer sortOrder;
+
     private String description;
 
     private List<RiskGroupDetailReq> details;

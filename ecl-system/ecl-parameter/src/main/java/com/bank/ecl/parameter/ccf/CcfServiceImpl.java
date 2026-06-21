@@ -67,9 +67,12 @@ public class CcfServiceImpl implements CcfService {
     @Transactional(rollbackFor = Exception.class)
     public CcfCurveVO createCurve(CcfCurveCreateReq req) {
         checkSchemeDraft(req.getSchemeId());
-        validateDaysRange(req.getCommitmentDaysMin(), req.getCommitmentDaysMax());
+        Integer daysMin = firstPresent(req.getCommitmentDaysMin(), req.getDaysMin());
+        Integer daysMax = firstPresent(req.getCommitmentDaysMax(), req.getDaysMax());
+        validateDaysRequired(daysMin, daysMax);
+        validateDaysRange(daysMin, daysMax);
 
-        CcfCurveEntity entity = buildEntity(req);
+        CcfCurveEntity entity = buildEntity(req.getSchemeId(), req, daysMin, daysMax);
         ccfCurveMapper.insert(entity);
         return toVO(entity);
     }
@@ -92,11 +95,13 @@ public class CcfServiceImpl implements CcfService {
         if (req.getCommitmentType() != null) {
             entity.setCommitmentType(req.getCommitmentType());
         }
-        if (req.getCommitmentDaysMin() != null) {
-            entity.setCommitmentDaysMin(req.getCommitmentDaysMin());
+        Integer daysMin = firstPresent(req.getCommitmentDaysMin(), req.getDaysMin());
+        Integer daysMax = firstPresent(req.getCommitmentDaysMax(), req.getDaysMax());
+        if (daysMin != null) {
+            entity.setCommitmentDaysMin(daysMin);
         }
-        if (req.getCommitmentDaysMax() != null) {
-            entity.setCommitmentDaysMax(req.getCommitmentDaysMax());
+        if (daysMax != null) {
+            entity.setCommitmentDaysMax(daysMax);
         }
         if (req.getCcfValue() != null) {
             entity.setCcfValue(req.getCcfValue());
@@ -134,8 +139,11 @@ public class CcfServiceImpl implements CcfService {
 
         if (curves != null && !curves.isEmpty()) {
             for (CcfCurveCreateReq req : curves) {
-                validateDaysRange(req.getCommitmentDaysMin(), req.getCommitmentDaysMax());
-                CcfCurveEntity entity = buildEntity(req);
+                Integer daysMin = firstPresent(req.getCommitmentDaysMin(), req.getDaysMin());
+                Integer daysMax = firstPresent(req.getCommitmentDaysMax(), req.getDaysMax());
+                validateDaysRequired(daysMin, daysMax);
+                validateDaysRange(daysMin, daysMax);
+                CcfCurveEntity entity = buildEntity(schemeId, req, daysMin, daysMax);
                 ccfCurveMapper.insert(entity);
             }
         }
@@ -152,18 +160,30 @@ public class CcfServiceImpl implements CcfService {
         vo.setCommitmentType(entity.getCommitmentType());
         vo.setCommitmentDaysMin(entity.getCommitmentDaysMin());
         vo.setCommitmentDaysMax(entity.getCommitmentDaysMax());
+        vo.setDaysMin(entity.getCommitmentDaysMin());
+        vo.setDaysMax(entity.getCommitmentDaysMax());
         vo.setCcfValue(entity.getCcfValue());
         return vo;
     }
 
-    private CcfCurveEntity buildEntity(CcfCurveCreateReq req) {
+    private CcfCurveEntity buildEntity(String schemeId, CcfCurveCreateReq req, Integer daysMin, Integer daysMax) {
         CcfCurveEntity entity = new CcfCurveEntity();
-        entity.setSchemeId(req.getSchemeId());
+        entity.setSchemeId(schemeId);
         entity.setProductType(req.getProductType());
         entity.setCommitmentType(req.getCommitmentType());
-        entity.setCommitmentDaysMin(req.getCommitmentDaysMin());
-        entity.setCommitmentDaysMax(req.getCommitmentDaysMax());
+        entity.setCommitmentDaysMin(daysMin);
+        entity.setCommitmentDaysMax(daysMax);
         entity.setCcfValue(req.getCcfValue());
         return entity;
+    }
+
+    private Integer firstPresent(Integer primary, Integer fallback) {
+        return primary != null ? primary : fallback;
+    }
+
+    private void validateDaysRequired(Integer min, Integer max) {
+        if (min == null || max == null) {
+            throw new EclException(ErrorCode.ECL_006, "期限上下限不能为空");
+        }
     }
 }

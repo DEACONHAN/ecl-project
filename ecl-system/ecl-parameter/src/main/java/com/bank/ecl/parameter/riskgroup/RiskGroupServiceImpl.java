@@ -131,9 +131,13 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         checkSchemeDraft(req.getSchemeId());
 
         // 生成 groupId 和 groupCode
-        int maxSeq = riskGroupMapper.selectMaxRiskGroupSeq();
         String groupId = UuidGenerator.uuid();
-        String groupCode = UuidGenerator.generateBizCode("GRP", maxSeq + 1);
+        String groupCode = req.getGroupCode();
+        int maxSeq = 0;
+        if (groupCode == null || groupCode.isBlank()) {
+            maxSeq = riskGroupMapper.selectMaxRiskGroupSeq();
+            groupCode = UuidGenerator.generateBizCode("GRP", maxSeq + 1);
+        }
 
         RiskGroupEntity entity = new RiskGroupEntity();
         entity.setGroupId(groupId);
@@ -141,7 +145,7 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         entity.setSchemeId(req.getSchemeId());
         entity.setGroupName(req.getGroupName());
         entity.setDescription(req.getDescription());
-        entity.setSortOrder(maxSeq + 1);
+        entity.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : nextSortOrder(req.getSchemeId(), maxSeq));
         entity.setCreatedAt(LocalDateTime.now());
 
         riskGroupMapper.insert(entity);
@@ -158,6 +162,14 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         return getGroup(req.getSchemeId(), groupId);
     }
 
+    private Integer nextSortOrder(String schemeId, int maxSeq) {
+        if (maxSeq > 0) {
+            return maxSeq + 1;
+        }
+        return Math.toIntExact(riskGroupMapper.selectCount(
+                new LambdaQueryWrapper<RiskGroupEntity>().eq(RiskGroupEntity::getSchemeId, schemeId))) + 1;
+    }
+
     // ======================== 更新 ========================
 
     @Override
@@ -171,8 +183,14 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         checkSchemeDraft(entity.getSchemeId());
 
         // 更新主表
+        if (req.getGroupCode() != null && !req.getGroupCode().isBlank()) {
+            entity.setGroupCode(req.getGroupCode());
+        }
         entity.setGroupName(req.getGroupName());
         entity.setDescription(req.getDescription());
+        if (req.getSortOrder() != null) {
+            entity.setSortOrder(req.getSortOrder());
+        }
         entity.setUpdatedAt(LocalDateTime.now());
         riskGroupMapper.updateById(entity);
 

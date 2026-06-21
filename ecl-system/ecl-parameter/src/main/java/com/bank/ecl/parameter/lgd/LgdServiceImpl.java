@@ -122,12 +122,13 @@ public class LgdServiceImpl implements LgdService {
         if (schemeId == null || schemeId.isBlank()) {
             throw new EclException(ErrorCode.ECL_006, "schemeId 不能为空");
         }
-        if (collateralType == null || collateralType.isBlank()) {
-            throw new EclException(ErrorCode.ECL_006, "collateralType 不能为空");
-        }
         LambdaQueryWrapper<LgdDepreciationEntity> wrapper = new LambdaQueryWrapper<LgdDepreciationEntity>()
-                .eq(LgdDepreciationEntity::getSchemeId, schemeId)
-                .eq(LgdDepreciationEntity::getCollateralType, collateralType);
+                .eq(LgdDepreciationEntity::getSchemeId, schemeId);
+        if (collateralType != null && !collateralType.isBlank()) {
+            wrapper.eq(LgdDepreciationEntity::getCollateralType, collateralType);
+        }
+        wrapper.orderByAsc(LgdDepreciationEntity::getCollateralType)
+                .orderByAsc(LgdDepreciationEntity::getYearOffset);
         List<LgdDepreciationEntity> entities = lgdDepreciationMapper.selectList(wrapper);
         return entities.stream().map(this::toDepreciationVO).collect(Collectors.toList());
     }
@@ -181,6 +182,7 @@ public class LgdServiceImpl implements LgdService {
         LgdCollateralDiscountVO vo = new LgdCollateralDiscountVO();
         vo.setDiscountId(entity.getDiscountId());
         vo.setSchemeId(entity.getSchemeId());
+        vo.setCollateralCategory(entity.getCollateralCategory());
         vo.setCollateralType(entity.getCollateralType());
         vo.setDiscountRate(entity.getDiscountRate());
         return vo;
@@ -189,6 +191,7 @@ public class LgdServiceImpl implements LgdService {
     private LgdCollateralDiscountEntity buildDiscountEntity(String schemeId, LgdCollateralDiscountCreateReq req) {
         LgdCollateralDiscountEntity entity = new LgdCollateralDiscountEntity();
         entity.setSchemeId(schemeId);
+        entity.setCollateralCategory(req.getCollateralCategory());
         entity.setCollateralType(req.getCollateralType());
         entity.setDiscountRate(req.getDiscountRate());
         return entity;

@@ -46,10 +46,10 @@ export const riskGroupApi = {
     request.put<RiskGroupVO>(`/v1/parameters/risk-groups/${id}`, data),
 
   /** 删除分组（会级联删除匹配规则） */
-  delete: (id: string) =>
-    request.delete(`/v1/parameters/risk-groups/${id}`),
+  delete: (schemeId: string, id: string) =>
+    request.delete(`/v1/parameters/risk-groups/${id}`, { params: { schemeId } }),
 
   /** 批量更新分组的匹配规则明细 */
   updateDetails: (schemeId: string, groupId: string, details: RiskGroupDetailVO[]) =>
-    request.put(`/v1/parameters/risk-groups/${groupId}/details`, { schemeId, details }),
+    request.put(`/v1/parameters/risk-groups/${groupId}/details`, details, { params: { schemeId } }),
 };

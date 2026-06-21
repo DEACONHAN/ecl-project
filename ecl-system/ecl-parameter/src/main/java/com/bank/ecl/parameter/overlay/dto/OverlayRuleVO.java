@@ -8,6 +8,7 @@ import java.time.LocalDate;
 @Data
 public class OverlayRuleVO {
     private Long ruleId;
+    private Long overlayId;
     private String schemeId;
     private String groupId;
     private String overlayType;
