@@ -53,7 +53,15 @@ public class RiskGroupEngine implements EclEngine {
         log.info("[6.1 RiskGroup] loaded {} rules, {} groups", rules.size(), groupMap.size());
 
         // 2. 逐客户逐借据匹配
-        for (CustomerContext customer : ctx.getCustomers()) {
+        List<CustomerContext> customers = ctx.getCustomers();
+        if (customers == null || customers.isEmpty()) {
+            log.info("[6.1 RiskGroup] no customers to process");
+            return;
+        }
+        for (CustomerContext customer : customers) {
+            if (customer == null) {
+                continue;
+            }
             if (customer.getAssets() == null) {
                 continue;
             }
@@ -95,7 +103,11 @@ public class RiskGroupEngine implements EclEngine {
             return Collections.emptyMap();
         }
         return groups.stream().collect(Collectors.toMap(
-                RiskGroupEntity::getGroupId, Function.identity()));
+                RiskGroupEntity::getGroupId, Function.identity(),
+                (existing, replacement) -> {
+                    log.warn("[6.1 RiskGroup] duplicate groupId '{}' in scheme, using first entry", existing.getGroupId());
+                    return existing;
+                }));
     }
 
     // ======================== 匹配逻辑 ========================

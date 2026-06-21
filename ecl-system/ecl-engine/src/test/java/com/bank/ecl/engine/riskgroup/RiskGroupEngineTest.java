@@ -18,6 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -119,6 +120,9 @@ class RiskGroupEngineTest {
         assertEquals("GRP_001", asset.getGroupId());
         assertEquals("对公业务", asset.getGroupName());
         assertNull(asset.getGroupException());
+
+        verify(detailMapper).selectList(any());
+        verify(groupMapper).selectList(any());
     }
 
     @Test
@@ -182,5 +186,47 @@ class RiskGroupEngineTest {
         // then
         assertEquals("GRP_DEFAULT", asset.getGroupId());
         assertEquals("Y", asset.getGroupException());
+    }
+
+    @Test
+    void shouldHandleMultipleAssetsWithMixedMatches() {
+        // given
+        String schemeId = "SCH_001";
+        RiskGroupDetailEntity rule = detail("GRP_001", 1, "非零售", "对公", "公司贷款");
+        when(detailMapper.selectList(any())).thenReturn(List.of(rule));
+        when(groupMapper.selectList(any())).thenReturn(List.of(group("GRP_001", "对公业务")));
+
+        AssetInput matchAsset = asset("非零售", "对公", "公司贷款", "J", "110000", "房产");
+        AssetInput noMatchAsset = asset("零售", "个人", "个消费贷", "X", "510000", "信用");
+        JobContext ctx = jobCtx(schemeId, List.of(matchAsset, noMatchAsset));
+
+        // when
+        engine.execute(ctx);
+
+        // then
+        assertEquals("GRP_001", matchAsset.getGroupId());
+        assertEquals("对公业务", matchAsset.getGroupName());
+        assertNull(matchAsset.getGroupException());
+
+        assertEquals("GRP_DEFAULT", noMatchAsset.getGroupId());
+        assertEquals("Y", noMatchAsset.getGroupException());
+    }
+
+    @Test
+    void shouldHandleNullAssets() {
+        // given
+        String schemeId = "SCH_001";
+        when(detailMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(groupMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        JobContext ctx = new JobContext();
+        ctx.setSchemeId(schemeId);
+        CustomerContext customer = new CustomerContext();
+        customer.setCustomerId("CUST_001");
+        customer.setAssets(null);  // null assets
+        ctx.setCustomers(List.of(customer));
+
+        // when - should not throw
+        assertDoesNotThrow(() -> engine.execute(ctx));
     }
 }
