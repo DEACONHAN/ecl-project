@@ -140,6 +140,16 @@ public class AssetInput {
     /** 异常码（"WARN"=走的兜底路径） */
     private String lgdException;
 
-    // ========== 预留字段（后续引擎使用）==========
-    // eclValue ...
+    // ========== 6.6 ECL 计算引擎输出 ==========
+
+    /** ECL 加权值 = pdLifetime × lgdValue × totalEad */
+    private double eclValue;
+
+    // ========== 6.7 Overlay 计算引擎输出 ==========
+
+    /** 叠加调整金额 */
+    private double overlayAmount;
+
+    /** 最终 ECL = eclValue + overlayAmount */
+    private double eclFinal;
 }
