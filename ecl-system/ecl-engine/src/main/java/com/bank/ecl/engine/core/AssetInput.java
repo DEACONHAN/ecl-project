@@ -1,5 +1,6 @@
 package com.bank.ecl.engine.core;
 
+import com.bank.ecl.engine.pd.PdDetail;
 import com.bank.ecl.engine.stage.StageResult;
 import lombok.Data;
 
@@ -75,6 +76,31 @@ public class AssetInput {
     /** 阶段判定结果 */
     private StageResult stageResult;
 
+    // ========== 6.3 PD 计算引擎入参 ==========
+
+    /** 评级代码 */
+    private String ratingCode;
+
+    /** 到期日 */
+    private java.time.LocalDate maturityDate;
+
+    /** 计算日期 */
+    private java.time.LocalDate calcDate;
+
+    // ========== 6.3 PD 计算引擎输出 ==========
+
+    /** 各情景 PD 明细 */
+    private java.util.List<PdDetail> pdDetails;
+
+    /** 12 个月加权 PD */
+    private double pd12m;
+
+    /** 存续期 PD */
+    private double pdLifetime;
+
+    /** 异常码（ECL_001 等，查不到即阻断） */
+    private String pdException;
+
     // ========== 预留字段（后续引擎使用）==========
-    // pdDetails, totalEad, lgdValue, eclValue ...
+    // totalEad, lgdValue, eclValue ...
 }
