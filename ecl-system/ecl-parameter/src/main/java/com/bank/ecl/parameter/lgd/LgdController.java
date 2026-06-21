@@ -75,7 +75,7 @@ public class LgdController {
 
     @GetMapping("/depreciations")
     public Result<List<LgdDepreciationVO>> listDepreciations(@RequestParam String schemeId,
-                                                              @RequestParam String collateralType) {
+                                                              @RequestParam(required = false) String collateralType) {
         return Result.success(lgdService.listDepreciations(schemeId, collateralType));
     }
 

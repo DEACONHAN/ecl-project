@@ -32,6 +32,7 @@ export interface LgdCurveVO {
 export interface LgdCollateralDiscountVO {
   discountId?: string;
   schemeId: string;
+  collateralCategory: string;
   collateralType: string;
   discountRate: number;
   createdAt?: string;
@@ -89,7 +90,7 @@ export const lgdApi = {
     request.post('/v1/parameters/lgd/collateral-discounts/batch', discounts.map((discount) => ({ ...discount, schemeId }))),
 
   // ─── 押品折旧率 CRUD ───
-  listDepreciations: (schemeId: string, collateralType: string, groupId?: string) =>
+  listDepreciations: (schemeId: string, collateralType?: string, groupId?: string) =>
     request.get<LgdDepreciationVO[]>('/v1/parameters/lgd/depreciations', {
       params: { schemeId, collateralType, groupId },
     }),

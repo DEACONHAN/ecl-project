@@ -25,13 +25,26 @@ import { PageHeader, Panel, GroupSelector } from '../../components';
    =================================================================== */
 const BenchmarkCurveTab: React.FC<{
   selectedSchemeId: string;
-  selectedGroupId: string;
-}> = ({ selectedSchemeId, selectedGroupId }) => {
+}> = ({ selectedSchemeId }) => {
+  const [groups, setGroups] = useState<RiskGroupVO[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [curves, setCurves] = useState<LgdCurveVO[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LgdCurveVO | null>(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (!selectedSchemeId) {
+      setGroups([]);
+      setSelectedGroupId('');
+      return;
+    }
+    riskGroupApi.listByScheme(selectedSchemeId).then((res) => {
+      setGroups((res.data as any)?.data || res.data || []);
+    });
+    setSelectedGroupId('');
+  }, [selectedSchemeId]);
 
   const load = useCallback(async () => {
     if (!selectedSchemeId || !selectedGroupId) {
@@ -159,9 +172,23 @@ const BenchmarkCurveTab: React.FC<{
       ),
     },
   ];
+  const groupSelectorItems = groups.map((g) => ({
+    groupId: g.groupId,
+    groupName: g.groupName,
+    groupCode: g.groupCode,
+  }));
 
   return (
     <>
+      {groups.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <GroupSelector
+            groups={groupSelectorItems}
+            selectedId={selectedGroupId || undefined}
+            onChange={setSelectedGroupId}
+          />
+        </div>
+      )}
       {!selectedGroupId ? (
         <div className="ecl-empty-row">请选择一个风险分组以维护 LGD 基准曲线</div>
       ) : (
@@ -268,6 +295,7 @@ const CollateralDiscountTab: React.FC<{
     await lgdApi.batchSaveDiscounts(
       selectedSchemeId,
       nextList.map((item) => ({
+        collateralCategory: item.collateralCategory,
         collateralType: item.collateralType,
         discountRate: item.discountRate,
       })),
@@ -292,6 +320,7 @@ const CollateralDiscountTab: React.FC<{
         await lgdApi.batchSaveDiscounts(
           selectedSchemeId,
           nextList.map((item) => ({
+            collateralCategory: item.collateralCategory,
             collateralType: item.collateralType,
             discountRate: item.discountRate,
           })),
@@ -304,7 +333,11 @@ const CollateralDiscountTab: React.FC<{
 
   const handleBatchSave = async () => {
     try {
-      const payload = list.map((d) => ({ collateralType: d.collateralType, discountRate: d.discountRate }));
+      const payload = list.map((d) => ({
+        collateralCategory: d.collateralCategory,
+        collateralType: d.collateralType,
+        discountRate: d.discountRate,
+      }));
       await lgdApi.batchSaveDiscounts(selectedSchemeId, payload);
       message.success('批量保存成功');
       load();
@@ -312,6 +345,7 @@ const CollateralDiscountTab: React.FC<{
   };
 
   const columns = [
+    { title: '押品大类', dataIndex: 'collateralCategory', key: 'collateralCategory', width: 200 },
     { title: '押品类型', dataIndex: 'collateralType', key: 'collateralType', width: 200 },
     {
       title: '折扣率',
@@ -342,6 +376,7 @@ const CollateralDiscountTab: React.FC<{
       <table className="ecl-table">
         <thead>
           <tr>
+            <th>押品大类</th>
             <th>押品类型</th>
             <th>折扣率</th>
             <th style={{ width: 120 }}>操作</th>
@@ -350,6 +385,7 @@ const CollateralDiscountTab: React.FC<{
         <tbody>
           {list.map((d) => (
             <tr key={d.discountId}>
+              <td>{d.collateralCategory}</td>
               <td>{d.collateralType}</td>
               <td>{(d.discountRate * 100).toFixed(2)}%</td>
               <td>
@@ -363,7 +399,7 @@ const CollateralDiscountTab: React.FC<{
             </tr>
           ))}
           {list.length === 0 && (
-            <tr><td colSpan={3}><div className="ecl-empty-row">暂无数据</div></td></tr>
+            <tr><td colSpan={4}><div className="ecl-empty-row">暂无数据</div></td></tr>
           )}
         </tbody>
       </table>
@@ -375,8 +411,11 @@ const CollateralDiscountTab: React.FC<{
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="collateralType" label="押品类型" rules={[{ required: true, message: '请输入押品类型' }]}>
+          <Form.Item name="collateralCategory" label="押品大类" rules={[{ required: true, message: '请输入押品大类' }]}>
             <Input placeholder="如：REAL_ESTATE, EQUIPMENT" />
+          </Form.Item>
+          <Form.Item name="collateralType" label="押品类型" rules={[{ required: true, message: '请输入押品类型' }]}>
+            <Input placeholder="如：RESIDENTIAL, MACHINE" />
           </Form.Item>
           <Form.Item
             name="discountRate"
@@ -398,242 +437,304 @@ const CollateralDiscountTab: React.FC<{
 /* ===================================================================
    Tab3: 押品折旧率（按 schemeId + collateralType 分组）
    =================================================================== */
+const DEFAULT_DEPRECIATION_YEARS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+type DepreciationMatrixRow = {
+  rowId: string;
+  collateralType: string;
+  originalCollateralType?: string;
+  rates: Record<number, number>;
+};
+
+const createEmptyRates = (years: number[]) =>
+  years.reduce<Record<number, number>>((acc, year) => {
+    acc[year] = 0;
+    return acc;
+  }, {});
+
 const DepreciationTab: React.FC<{
   selectedSchemeId: string;
-  selectedGroupId: string;
-}> = ({ selectedSchemeId, selectedGroupId }) => {
-  const [collateralTypes, setCollateralTypes] = useState<string[]>([]);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [list, setList] = useState<LgdDepreciationVO[]>([]);
+}> = ({ selectedSchemeId }) => {
+  const [years, setYears] = useState<number[]>(DEFAULT_DEPRECIATION_YEARS);
+  const [rows, setRows] = useState<DepreciationMatrixRow[]>([]);
+  const [deletedTypes, setDeletedTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<LgdDepreciationVO | null>(null);
-  const [form] = Form.useForm();
 
-  // 加载已存在的押品类型列表（从折扣率 API 获取可选项，或从折旧 API 获取已有类型）
-  const loadTypes = useCallback(async () => {
-    if (!selectedSchemeId) return;
-    try {
-      // 先尝试从折旧 API 获取已有的押品类型列表
-      const res = await lgdApi.listDiscounts(selectedSchemeId);
-      const discounts: LgdCollateralDiscountVO[] = (res.data as any)?.data || res.data || [];
-      const types = [...new Set(discounts.map((d) => d.collateralType))];
-      setCollateralTypes(types);
-    } catch {
-      // ignore
-    }
-  }, [selectedSchemeId]);
-
-  useEffect(() => { loadTypes(); }, [loadTypes]);
-
-  // 加载折旧率数据
   const loadData = useCallback(async () => {
-    if (!selectedSchemeId || !selectedType) {
-      setList([]);
+    if (!selectedSchemeId) {
+      setRows([]);
+      setDeletedTypes([]);
+      setYears(DEFAULT_DEPRECIATION_YEARS);
       return;
     }
     setLoading(true);
     try {
-      const res = await lgdApi.listDepreciations(selectedSchemeId, selectedType, selectedGroupId || undefined);
-      setList((res.data as any)?.data || res.data || []);
+      const res = await lgdApi.listDepreciations(selectedSchemeId);
+      const data: LgdDepreciationVO[] = (res.data as any)?.data || res.data || [];
+      const rowMap = new Map<string, DepreciationMatrixRow>();
+      const persistedYears = [...new Set(data.map((item) => item.yearOffset))]
+        .filter((year) => Number.isInteger(year) && year >= 0)
+        .sort((a, b) => a - b);
+      const nextYears = persistedYears.length > 0 ? persistedYears : DEFAULT_DEPRECIATION_YEARS;
+      data.forEach((item) => {
+        if (!item.collateralType) return;
+        if (!rowMap.has(item.collateralType)) {
+          rowMap.set(item.collateralType, {
+            rowId: item.collateralType,
+            collateralType: item.collateralType,
+            originalCollateralType: item.collateralType,
+            rates: createEmptyRates(nextYears),
+          });
+        }
+        const row = rowMap.get(item.collateralType)!;
+        if (nextYears.includes(item.yearOffset)) {
+          row.rates[item.yearOffset] = Number(item.depreciationRate ?? 0);
+        }
+      });
+      setYears(nextYears);
+      setRows(Array.from(rowMap.values()));
+      setDeletedTypes([]);
     } finally {
       setLoading(false);
     }
-  }, [selectedSchemeId, selectedType, selectedGroupId]);
+  }, [selectedSchemeId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const handleSave = async () => {
-    const values = await form.validateFields();
-    if (!selectedType) return;
-    // 校验 depreciationRate 0~1
-    if (values.depreciationRate < 0 || values.depreciationRate > 1) {
-      message.error('折旧率范围必须在 0 ~ 1 之间');
-      return;
-    }
-    const nextList = editing
-      ? list.map((item) => (item.depreciationId === editing.depreciationId ? { ...item, ...values } : item))
-      : [
-          ...list,
-          {
-            ...values,
-            schemeId: selectedSchemeId,
-            collateralType: selectedType,
-            depreciationId: `tmp_${Date.now()}`,
-          },
-        ];
-    await lgdApi.batchSaveDepreciations(
-      selectedSchemeId,
-      selectedType,
-      nextList.map((item) => ({
-        yearOffset: item.yearOffset,
-        depreciationRate: item.depreciationRate,
-      })),
-    );
-    if (editing) {
-      message.success('更新成功');
-    } else {
-      message.success('创建成功');
-    }
-    setModalOpen(false);
-    setEditing(null);
-    form.resetFields();
-    loadData();
+  const handleAddRow = () => {
+    setRows((prev) => [
+      ...prev,
+      {
+        rowId: `tmp_${Date.now()}`,
+        collateralType: '',
+        rates: createEmptyRates(years),
+      },
+    ]);
   };
 
-  const handleDelete = (id: string) => {
+  const handleAddYear = () => {
+    const nextYear = (years.length > 0 ? Math.max(...years) : -1) + 1;
+    setYears((prev) => [...prev, nextYear]);
+    setRows((prev) =>
+      prev.map((row) => ({
+        ...row,
+        rates: { ...row.rates, [nextYear]: 0 },
+      })),
+    );
+  };
+
+  const handleRemoveYear = () => {
+    if (years.length <= 1) {
+      message.warning('至少保留一个年份');
+      return;
+    }
+    const removedYear = years[years.length - 1];
+    setYears((prev) => prev.slice(0, -1));
+    setRows((prev) =>
+      prev.map((row) => {
+        const { [removedYear]: _removed, ...nextRates } = row.rates;
+        return { ...row, rates: nextRates };
+      }),
+    );
+  };
+
+  const handleYearChange = (index: number, value: number | null) => {
+    if (value == null) return;
+    const nextYear = Number(value);
+    if (!Number.isInteger(nextYear) || nextYear < 0) {
+      message.error('年份必须是非负整数');
+      return;
+    }
+    if (years.some((year, yearIndex) => yearIndex !== index && year === nextYear)) {
+      message.error('年份不能重复');
+      return;
+    }
+    const previousYear = years[index];
+    if (previousYear === nextYear) return;
+    setYears((prev) => prev.map((year, yearIndex) => (yearIndex === index ? nextYear : year)));
+    setRows((prev) =>
+      prev.map((row) => {
+        const previousRate = row.rates[previousYear] ?? 0;
+        const { [previousYear]: _removed, ...remainingRates } = row.rates;
+        return {
+          ...row,
+          rates: {
+            ...remainingRates,
+            [nextYear]: previousRate,
+          },
+        };
+      }),
+    );
+  };
+
+  const handleDeleteRow = (row: DepreciationMatrixRow) => {
     Modal.confirm({
       title: '确认删除',
-      content: '确定要删除这条折旧率吗？',
-      onOk: async () => {
-        if (!selectedType) return;
-        const nextList = list.filter((item) => item.depreciationId !== id);
-        await lgdApi.batchSaveDepreciations(
-          selectedSchemeId,
-          selectedType,
-          nextList.map((item) => ({
-            yearOffset: item.yearOffset,
-            depreciationRate: item.depreciationRate,
-          })),
-        );
-        message.success('已删除');
-        loadData();
+      content: '确定要删除该押品类型的折旧率配置吗？',
+      onOk: () => {
+        const persistedType = row.originalCollateralType || row.collateralType.trim();
+        if (persistedType) {
+          setDeletedTypes((prev) => (prev.includes(persistedType) ? prev : [...prev, persistedType]));
+        }
+        setRows((prev) => prev.filter((item) => item.rowId !== row.rowId));
       },
     });
   };
 
-  const handleBatchSave = async () => {
-    if (!selectedType) return;
-    try {
-      const payload = list.map((d) => ({
-        yearOffset: d.yearOffset,
-        depreciationRate: d.depreciationRate,
-      }));
-      await lgdApi.batchSaveDepreciations(selectedSchemeId, selectedType, payload);
-      message.success('批量保存成功');
-      loadData();
-    } catch { message.error('批量保存失败'); }
+  const handleCollateralTypeChange = (rowId: string, value: string) => {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.rowId !== rowId) return row;
+        const originalType = row.originalCollateralType?.trim();
+        const nextType = value.trim();
+        if (originalType && originalType !== nextType) {
+          setDeletedTypes((deleted) => (deleted.includes(originalType) ? deleted : [...deleted, originalType]));
+        }
+        return { ...row, collateralType: value };
+      }),
+    );
   };
 
-  const columns = [
-    {
-      title: '年份',
-      dataIndex: 'yearOffset',
-      key: 'yearOffset',
-      width: 200,
-      render: (v: number) => (v != null ? `第 ${v} 年` : '-'),
-    },
-    {
-      title: '折旧率',
-      dataIndex: 'depreciationRate',
-      key: 'depreciationRate',
-      width: 200,
-      render: (v: number) => (v != null ? (v * 100).toFixed(2) + '%' : '-'),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 120,
-      render: (_: any, record: LgdDepreciationVO) => (
-        <Space>
-          <Button type="link" icon={<EditOutlined />} onClick={() => { setEditing(record); form.setFieldsValue(record); setModalOpen(true); }} />
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.depreciationId!)} />
-        </Space>
+  const handleRateChange = (rowId: string, year: number, percent: number | null) => {
+    const nextPercent = Number(percent ?? 0);
+    setRows((prev) =>
+      prev.map((row) =>
+        row.rowId === rowId
+          ? { ...row, rates: { ...row.rates, [year]: nextPercent / 100 } }
+          : row,
       ),
-    },
-  ];
-
-  if (!selectedType) {
-    return (
-      <div style={{ padding: 16 }}>
-        <Typography.Text strong style={{ marginRight: 12 }}>选择押品类型：</Typography.Text>
-        <Select
-          style={{ width: 300 }}
-          placeholder="请选择押品类型"
-          onChange={setSelectedType}
-          options={collateralTypes.map((t) => ({ label: t, value: t }))}
-        />
-        {collateralTypes.length === 0 && (
-          <div style={{ marginTop: 16 }}><Empty description="暂无押品类型数据，请先在「押品折扣率」Tab 中添加押品类型" /></div>
-        )}
-      </div>
     );
-  }
+  };
+
+  const validateRows = () => {
+    const types = rows.map((row) => row.collateralType.trim());
+    if (types.some((type) => !type)) {
+      message.error('押品类型不能为空');
+      return null;
+    }
+    if (new Set(types).size !== types.length) {
+      message.error('押品类型不能重复');
+      return null;
+    }
+    if (new Set(years).size !== years.length) {
+      message.error('年份不能重复');
+      return null;
+    }
+    for (const row of rows) {
+      for (const year of years) {
+        const rate = row.rates[year] ?? 0;
+        if (rate < -1 || rate > 1) {
+          message.error('折旧率范围必须在 -100% ~ 100% 之间');
+          return null;
+        }
+      }
+    }
+    return types;
+  };
+
+  const handleBatchSave = async () => {
+    const validTypes = validateRows();
+    if (!validTypes) return;
+    setLoading(true);
+    try {
+      const currentTypes = new Set(validTypes);
+      for (const row of rows) {
+        await lgdApi.batchSaveDepreciations(
+          selectedSchemeId,
+          row.collateralType.trim(),
+          years.map((year) => ({
+            yearOffset: year,
+            depreciationRate: row.rates[year] ?? 0,
+          })),
+        );
+      }
+      for (const type of deletedTypes.filter((item) => !currentTypes.has(item))) {
+        await lgdApi.batchSaveDepreciations(selectedSchemeId, type, []);
+      }
+      message.success('批量保存成功');
+      loadData();
+    } catch {
+      message.error('批量保存失败');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, gap: 12 }}>
-        <Typography.Text strong>押品类型：</Typography.Text>
-        <Select
-          style={{ width: 300 }}
-          value={selectedType}
-          onChange={(v) => { setSelectedType(v); setEditing(null); form.resetFields(); }}
-          options={collateralTypes.map((t) => ({ label: t, value: t }))}
-        />
-      </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8, gap: 8 }}>
-        <Button icon={<PlusOutlined />} type="primary" onClick={() => { setEditing(null); form.resetFields(); setModalOpen(true); }}>新增</Button>
-        <Button onClick={handleBatchSave}>批量保存</Button>
+        <Button onClick={handleAddYear}>新增年份</Button>
+        <Button onClick={handleRemoveYear} disabled={years.length <= 1}>删除末年</Button>
+        <Button icon={<PlusOutlined />} type="primary" onClick={handleAddRow}>新增押品类型</Button>
+        <Button loading={loading} onClick={handleBatchSave}>批量保存</Button>
       </div>
-      <table className="ecl-table">
-        <thead>
-          <tr>
-            <th>年份</th>
-            <th>折旧率</th>
-            <th style={{ width: 120 }}>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((d) => (
-            <tr key={d.depreciationId}>
-              <td>{d.yearOffset != null ? `第 ${d.yearOffset} 年` : '-'}</td>
-              <td>{(d.depreciationRate * 100).toFixed(2)}%</td>
-              <td>
-                <Space>
-                  <Button type="link" size="small" icon={<EditOutlined />}
-                    onClick={() => { setEditing(d); form.setFieldsValue(d); setModalOpen(true); }} />
-                  <Button type="link" size="small" danger icon={<DeleteOutlined />}
-                    onClick={() => handleDelete(d.depreciationId!)} />
-                </Space>
-              </td>
+      {rows.length === 0 ? (
+        <div style={{ marginTop: 16 }}>
+          <Empty description="暂无押品折旧率数据" />
+        </div>
+      ) : (
+        <table className="ecl-table">
+          <thead>
+            <tr>
+              <th style={{ minWidth: 180 }}>押品类型</th>
+              {years.map((year, index) => (
+                <th key={`${index}-${year}`} style={{ width: 100 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <InputNumber
+                      controls={false}
+                      precision={0}
+                      min={0}
+                      size="small"
+                      value={year}
+                      onChange={(value) => handleYearChange(index, value == null ? null : Number(value))}
+                      style={{ width: 54 }}
+                    />
+                    <span>年</span>
+                    <span style={{ color: '#9ca3af' }}>%</span>
+                  </div>
+                </th>
+              ))}
+              <th style={{ width: 80 }}>操作</th>
             </tr>
-          ))}
-          {list.length === 0 && (
-            <tr><td colSpan={3}><div className="ecl-empty-row">暂无数据</div></td></tr>
-          )}
-        </tbody>
-      </table>
-
-      <Modal
-        title={editing ? '编辑押品折旧率' : '新增押品折旧率'}
-        open={modalOpen}
-        onOk={handleSave}
-        onCancel={() => { setModalOpen(false); form.resetFields(); }}
-      >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="yearOffset"
-            label="年份偏移"
-            rules={[
-              { required: true, message: '请输入年份偏移' },
-              { type: 'number', min: 0, message: '年份偏移不能小于 0' },
-            ]}
-          >
-            <InputNumber min={0} style={{ width: '100%' }} placeholder="如：0（当年）" />
-          </Form.Item>
-          <Form.Item
-            name="depreciationRate"
-            label="折旧率"
-            rules={[
-              { required: true, message: '请输入折旧率' },
-              { type: 'number', min: 0, max: 1, message: '折旧率范围 0 ~ 1' },
-            ]}
-          >
-            <InputNumber min={0} max={1} step={0.01} style={{ width: '100%' }} placeholder="0 ~ 1 之间的小数" />
-          </Form.Item>
-          <Typography.Text type="secondary">校验规则：折旧率 0 ~ 1</Typography.Text>
-        </Form>
-      </Modal>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.rowId}>
+                <td>
+                  <Input
+                    value={row.collateralType}
+                    placeholder="请输入押品类型"
+                    onChange={(event) => handleCollateralTypeChange(row.rowId, event.target.value)}
+                  />
+                </td>
+                {years.map((year) => (
+                  <td key={year}>
+                    <InputNumber
+                      controls={false}
+                      precision={2}
+                      min={-100}
+                      max={100}
+                      size="small"
+                      value={Number(((row.rates[year] ?? 0) * 100).toFixed(2))}
+                      onChange={(value) => handleRateChange(row.rowId, year, Number(value ?? 0))}
+                      style={{ width: 72 }}
+                    />
+                  </td>
+                ))}
+                <td>
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteRow(row)}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </>
   );
 };
@@ -651,29 +752,12 @@ const LgdConfig: React.FC = () => {
   const [schemes, setSchemes] = useState<SchemeVO[]>([]);
   const [selectedSchemeId, setSelectedSchemeId] = useState<string>(effectiveSchemeId);
 
-  // ─── 分组 ───
-  const [groups, setGroups] = useState<RiskGroupVO[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
-
   // 加载方案列表
   useEffect(() => {
     schemeApi.list().then((res) => {
       setSchemes((res.data as any)?.data || res.data || []);
     });
   }, []);
-
-  // 方案变化 -> 加载分组
-  useEffect(() => {
-    if (!selectedSchemeId) {
-      setGroups([]);
-      setSelectedGroupId('');
-      return;
-    }
-    riskGroupApi.listByScheme(selectedSchemeId).then((res) => {
-      setGroups((res.data as any)?.data || res.data || []);
-    });
-    setSelectedGroupId('');
-  }, [selectedSchemeId]);
 
   if (!selectedSchemeId) {
     return (
@@ -688,7 +772,7 @@ const LgdConfig: React.FC = () => {
               style={{ width: 300, marginTop: 16 }}
               placeholder="请选择 ECL 方案"
               value={selectedSchemeId || undefined}
-              onChange={(v) => { setSelectedSchemeId(v); setSelectedGroupId(''); }}
+              onChange={setSelectedSchemeId}
               options={schemes.map((s) => ({ label: `${s.schemeName}(${s.schemeCode})`, value: s.schemeId }))}
             />
           </Empty>
@@ -701,7 +785,7 @@ const LgdConfig: React.FC = () => {
     {
       key: 'benchmark',
       label: '基准曲线',
-      children: <BenchmarkCurveTab selectedSchemeId={selectedSchemeId} selectedGroupId={selectedGroupId} />,
+      children: <BenchmarkCurveTab selectedSchemeId={selectedSchemeId} />,
     },
     {
       key: 'discount',
@@ -711,15 +795,9 @@ const LgdConfig: React.FC = () => {
     {
       key: 'depreciation',
       label: '押品折旧率',
-      children: <DepreciationTab selectedSchemeId={selectedSchemeId} selectedGroupId={selectedGroupId} />,
+      children: <DepreciationTab selectedSchemeId={selectedSchemeId} />,
     },
   ];
-  const groupSelectorItems = groups.map((g) => ({
-    groupId: g.groupId,
-    groupName: g.groupName,
-    groupCode: g.groupCode,
-  }));
-
   return (
     <div className="ecl-page">
       <PageHeader
@@ -731,20 +809,12 @@ const LgdConfig: React.FC = () => {
               style={{ width: 280 }}
               placeholder="请选择 ECL 方案"
               value={selectedSchemeId || undefined}
-              onChange={(v) => { setSelectedSchemeId(v); setSelectedGroupId(''); }}
+              onChange={setSelectedSchemeId}
               options={schemes.map((s) => ({ label: `${s.schemeName}(${s.schemeCode})`, value: s.schemeId }))}
             />
           </Space>
         }
       />
-
-      {groups.length > 0 && (
-        <GroupSelector
-          groups={groupSelectorItems}
-          selectedId={selectedGroupId || undefined}
-          onChange={setSelectedGroupId}
-        />
-      )}
 
       <Panel>
         <Tabs items={tabItems} />

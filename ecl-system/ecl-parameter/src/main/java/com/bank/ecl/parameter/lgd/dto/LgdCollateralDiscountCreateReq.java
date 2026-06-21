@@ -14,6 +14,9 @@ public class LgdCollateralDiscountCreateReq {
     @NotBlank(message = "schemeId 不能为空")
     private String schemeId;
 
+    @NotBlank(message = "collateralCategory 不能为空")
+    private String collateralCategory;
+
     @NotBlank(message = "collateralType 不能为空")
     private String collateralType;
 
