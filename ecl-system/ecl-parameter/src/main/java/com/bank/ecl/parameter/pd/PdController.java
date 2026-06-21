@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -55,11 +56,12 @@ public class PdController {
 
     @GetMapping("/curves")
     public Result<List<PdCurveVO>> listCurves(@RequestParam String schemeId,
-                                              @RequestParam String groupId) {
-        return Result.success(pdService.listCurves(schemeId, groupId));
+                                              @RequestParam String groupId,
+                                              @RequestParam(required = false) Long scenarioId) {
+        return Result.success(pdService.listCurves(schemeId, groupId, scenarioId));
     }
 
-    @PostMapping("/curves/batch")
+    @RequestMapping(value = "/curves/batch", method = {RequestMethod.POST, RequestMethod.PUT})
     public Result<Void> batchUpdateCurves(@Valid @RequestBody PdCurveBatchReq req) {
         pdService.batchUpdateCurves(req);
         return Result.success();

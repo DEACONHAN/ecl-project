@@ -11,9 +11,11 @@ export interface PdVO {
 }
 
 export interface PdMatrixVO {
-  riskGroups: string[];
-  stages: string[];
-  matrix: Record<string, Record<string, number>>;
+  schemeId: string;
+  groupId: string;
+  ratingCodes: string[];
+  scenarios: ScenarioVO[];
+  matrix: number[][];
 }
 
 /** 情景（Scenario） */
@@ -45,9 +47,10 @@ export interface PdMatrixCell {
 
 export const pdApi = {
   list: (schemeId: string) => request.get<PdVO[]>('/v1/parameters/pd', { params: { schemeId } }),
-  getMatrix: (schemeId: string) => request.get<PdMatrixVO>('/v1/parameters/pd/matrix', { params: { schemeId } }),
+  getMatrix: (schemeId: string, groupId: string) =>
+    request.get<PdMatrixVO>('/v1/parameters/pd/matrix', { params: { schemeId, groupId } }),
   saveMatrix: (schemeId: string, matrix: PdMatrixVO) =>
-    request.put('/v1/parameters/pd/matrix', { schemeId, ...matrix }),
+    request.put('/v1/parameters/pd/matrix', { ...matrix, schemeId }),
   update: (id: string, data: Partial<PdVO>) => request.put<PdVO>(`/v1/parameters/pd/${id}`, data),
 
   // ─── 情景管理 ───
@@ -61,10 +64,19 @@ export const pdApi = {
     request.delete(`/v1/parameters/pd/scenarios/${id}`),
 
   // ─── 曲线编辑 ───
-  listCurves: (scenarioId: string) =>
-    request.get<PdCurveVO[]>('/v1/parameters/pd/curves', { params: { scenarioId } }),
-  batchUpdateCurves: (scenarioId: string, curves: Omit<PdCurveVO, 'scenarioId'>[]) =>
-    request.put('/v1/parameters/pd/curves/batch', { scenarioId, curves }),
+  listCurves: (schemeId: string, groupId: string, scenarioId: string) =>
+    request.get<PdCurveVO[]>('/v1/parameters/pd/curves', { params: { schemeId, groupId, scenarioId } }),
+  batchUpdateCurves: (
+    schemeId: string,
+    groupId: string,
+    scenarioId: string,
+    curves: Omit<PdCurveVO, 'schemeId' | 'groupId' | 'scenarioId'>[],
+  ) =>
+    request.post('/v1/parameters/pd/curves/batch', {
+      schemeId,
+      groupId,
+      curves: curves.map((curve) => ({ ...curve, scenarioId })),
+    }),
 
   // ─── 矩阵视图（增强：含情景列） ───
   getMatrixDetail: (schemeId: string) =>

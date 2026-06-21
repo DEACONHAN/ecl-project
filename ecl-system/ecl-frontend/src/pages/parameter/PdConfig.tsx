@@ -109,14 +109,18 @@ const PdConfig: React.FC = () => {
 
   // 选中情景 → 加载曲线
   const loadCurves = useCallback(async (scenarioId: string) => {
+    if (!selectedSchemeId || !selectedGroupId) {
+      setCurves([]);
+      return;
+    }
     setCurvesLoading(true);
     try {
-      const res = await pdApi.listCurves(scenarioId);
+      const res = await pdApi.listCurves(selectedSchemeId, selectedGroupId, scenarioId);
       setCurves((res.data as any)?.data || res.data || []);
     } finally {
       setCurvesLoading(false);
     }
-  }, []);
+  }, [selectedSchemeId, selectedGroupId]);
 
   useEffect(() => {
     if (selectedScenarioId) {
@@ -178,7 +182,10 @@ const PdConfig: React.FC = () => {
   // ─── 曲线 CRUD ───
   const handleSaveCurve = async () => {
     const values = await curveForm.validateFields();
-    if (!selectedScenarioId) return;
+    if (!selectedScenarioId || !selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
 
     if (editingCurve) {
       // 内联更新：构造新列表
@@ -186,15 +193,19 @@ const PdConfig: React.FC = () => {
         c.curveId === editingCurve.curveId ? { ...c, ...values } : c,
       );
       await pdApi.batchUpdateCurves(
+        selectedSchemeId,
+        selectedGroupId,
         selectedScenarioId,
-        updated.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
       );
       message.success('曲线更新成功');
     } else {
       const newCurves = [...curves, { ...values, scenarioId: selectedScenarioId, curveId: `tmp_${Date.now()}` }];
       await pdApi.batchUpdateCurves(
+        selectedSchemeId,
+        selectedGroupId,
         selectedScenarioId,
-        newCurves.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
       );
       message.success('曲线新增成功');
     }
@@ -210,10 +221,15 @@ const PdConfig: React.FC = () => {
       title: '确认删除',
       content: '确定要删除这条 PD 曲线数据吗？',
       onOk: async () => {
-        if (!selectedScenarioId) return;
+        if (!selectedScenarioId || !selectedGroupId) {
+          message.warning('请先选择风险分组');
+          return;
+        }
         await pdApi.batchUpdateCurves(
+          selectedSchemeId,
+          selectedGroupId,
           selectedScenarioId,
-          newCurves.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
         );
         message.success('已删除');
         loadCurves(selectedScenarioId);
@@ -223,11 +239,16 @@ const PdConfig: React.FC = () => {
 
   // ─── 批量保存曲线 ───
   const handleBatchSaveCurves = async () => {
-    if (!selectedScenarioId) return;
+    if (!selectedScenarioId || !selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
     try {
       await pdApi.batchUpdateCurves(
+        selectedSchemeId,
+        selectedGroupId,
         selectedScenarioId,
-        curves.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        curves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
       );
       message.success('批量保存成功');
     } catch {
@@ -238,34 +259,21 @@ const PdConfig: React.FC = () => {
   // ─── 矩阵视图 ───
   const handleOpenMatrix = async () => {
     if (!selectedSchemeId) return;
+    if (!selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
     setMatrixModalOpen(true);
     setMatrixLoading(true);
     try {
-      const res = await pdApi.getMatrixDetail(selectedSchemeId);
-      const cells: { ratingCode: string; scenarioName: string; pdValue: number }[] =
-        (res.data as any)?.data || res.data || [];
-      const ratingCodes = [...new Set(cells.map((c) => c.ratingCode))].sort();
-      const scenarioNames = [...new Set(cells.map((c) => c.scenarioName))];
-      const values = ratingCodes.map((rc) =>
-        scenarioNames.map((sn) => {
-          const cell = cells.find((c) => c.ratingCode === rc && c.scenarioName === sn);
-          return cell ? cell.pdValue : 0;
-        }),
-      );
+      const res = await pdApi.getMatrix(selectedSchemeId, selectedGroupId);
+      const m = (res.data as any)?.data || res.data;
+      const ratingCodes = m.ratingCodes || [];
+      const scenarioNames = (m.scenarios || []).map((scenario: ScenarioVO) => scenario.scenarioName || scenario.scenarioType);
+      const values = m.matrix || [];
       setMatrixData({ ratingCodes, scenarioNames, values });
     } catch {
-      // 若新 API 不可用，降级使用现有 getMatrix
-      try {
-        const res = await pdApi.getMatrix(selectedSchemeId);
-        const m = (res.data as any)?.data || res.data;
-        const rgs = m.riskGroups || [];
-        const sts = m.stages || [];
-        const matrix = m.matrix || {};
-        const vals = rgs.map((rg: string) => sts.map((st: string) => matrix[rg]?.[st] ?? 0));
-        setMatrixData({ ratingCodes: rgs, scenarioNames: sts, values: vals });
-      } catch {
-        message.error('加载矩阵数据失败');
-      }
+      message.error('加载矩阵数据失败');
     } finally {
       setMatrixLoading(false);
     }
@@ -389,14 +397,11 @@ const PdConfig: React.FC = () => {
   // 计算剩余权重
   const totalWeight = scenarios.reduce((s, c) => s + c.weight, 0);
   const remainingWeight = Math.max(0, +(1 - totalWeight).toFixed(4));
-  const groupSelectorItems = [
-    { groupId: '', groupName: '全部分组', groupCode: 'ALL' },
-    ...groups.map((g) => ({
-      groupId: g.groupId,
-      groupName: g.groupName,
-      groupCode: g.groupCode,
-    })),
-  ];
+  const groupSelectorItems = groups.map((g) => ({
+    groupId: g.groupId,
+    groupName: g.groupName,
+    groupCode: g.groupCode,
+  }));
 
   return (
     <div className="ecl-page">
@@ -531,7 +536,13 @@ const PdConfig: React.FC = () => {
       </Panel>
 
       {/* 曲线编辑 */}
-      {selectedScenarioId && (
+      {selectedScenarioId && !selectedGroupId && (
+        <Panel>
+          <div className="ecl-empty-row">请选择一个风险分组以维护该情景下的 PD 曲线</div>
+        </Panel>
+      )}
+
+      {selectedScenarioId && selectedGroupId && (
         <Panel
           title={
             <span>
