@@ -136,8 +136,9 @@ public class RiskGroupEngine implements EclEngine {
     }
 
     /**
-     * 单维度匹配：规则值 NULL 或空 → 通配（不限制此维度）；
-     * 资产值 NULL 或空 → 通配（不限制此维度）；
+     * 单维度匹配：
+     * 规则值 NULL 或空 → 通配（不限制此维度）；
+     * 资产值 NULL 或空且规则值非空 → 不匹配；
      * 否则精确匹配。
      */
     private boolean matchDimension(String assetValue, String ruleValue) {
@@ -145,7 +146,7 @@ public class RiskGroupEngine implements EclEngine {
             return true;
         }
         if (assetValue == null || assetValue.isBlank()) {
-            return true;
+            return false;
         }
         return ruleValue.equals(assetValue);
     }

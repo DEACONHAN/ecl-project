@@ -64,6 +64,18 @@ class RiskGroupEngineTest {
         return ctx;
     }
 
+    private AssetInput asset(String businessLine, String productType,
+                             String industryCode, String collateralType) {
+        AssetInput a = new AssetInput();
+        a.setAssetId("AST_001");
+        a.setCustomerId("CUST_001");
+        a.setBusinessLine(businessLine);
+        a.setProductType(productType);
+        a.setIndustryCode(industryCode);
+        a.setCollateralType(collateralType);
+        return a;
+    }
+
     private RiskGroupDetailEntity detail(String groupId, int priority,
                                          String businessLine, String productType) {
         RiskGroupDetailEntity d = new RiskGroupDetailEntity();
@@ -71,6 +83,19 @@ class RiskGroupEngineTest {
         d.setPriority(priority);
         d.setBusinessLine(businessLine);
         d.setProductType(productType);
+        return d;
+    }
+
+    private RiskGroupDetailEntity detail(String groupId, int priority,
+                                         String businessLine, String productType,
+                                         String industryCode, String collateralType) {
+        RiskGroupDetailEntity d = new RiskGroupDetailEntity();
+        d.setGroupId(groupId);
+        d.setPriority(priority);
+        d.setBusinessLine(businessLine);
+        d.setProductType(productType);
+        d.setIndustryCode(industryCode);
+        d.setCollateralType(collateralType);
         return d;
     }
 
@@ -226,5 +251,43 @@ class RiskGroupEngineTest {
 
         // when - should not throw
         assertDoesNotThrow(() -> engine.execute(ctx));
+    }
+
+    @Test
+    void shouldNotMatchNonBlankRuleWhenAssetValueBlank() {
+        // given
+        String schemeId = "SCH_001";
+        RiskGroupDetailEntity rule = detail("GRP_001", 1, "2 Loan", "公司贷款", "制造业", "房产抵押");
+        when(detailMapper.selectList(any())).thenReturn(List.of(rule));
+        when(groupMapper.selectList(any())).thenReturn(List.of(group("GRP_001", "贷款")));
+
+        AssetInput asset = asset("2 Loan", "公司贷款", null, "房产抵押");
+        JobContext ctx = jobCtx(schemeId, List.of(asset));
+
+        // when
+        engine.execute(ctx);
+
+        // then — industryCode=null in asset, but rule has "制造业" → should NOT match
+        assertEquals("GRP_DEFAULT", asset.getGroupId());
+    }
+
+    @Test
+    void shouldIgnoreCustomerTypeAndRegionCode() {
+        // given
+        String schemeId = "SCH_001";
+        RiskGroupDetailEntity rule = detail("GRP_001", 1, "2 Loan", "公司贷款", "制造业", "房产抵押");
+        when(detailMapper.selectList(any())).thenReturn(List.of(rule));
+        when(groupMapper.selectList(any())).thenReturn(List.of(group("GRP_001", "贷款")));
+
+        AssetInput asset = asset("2 Loan", "公司贷款", "制造业", "房产抵押");
+        asset.setCustomerType("不应参与");
+        asset.setRegionCode("不应参与");
+        JobContext ctx = jobCtx(schemeId, List.of(asset));
+
+        // when
+        engine.execute(ctx);
+
+        // then — customerType/regionCode should be completely ignored; only 4 dims matter
+        assertEquals("GRP_001", asset.getGroupId());
     }
 }
