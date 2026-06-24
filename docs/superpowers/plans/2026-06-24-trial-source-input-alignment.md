@@ -92,7 +92,7 @@ Expected: existing dirty files may include the technical document and `OutputEng
 Run:
 
 ```bash
-mvn -pl ecl-engine test
+cd ecl-system && mvn -pl ecl-engine test
 ```
 
 Expected: either pass, or record pre-existing failures before code changes.
@@ -161,7 +161,7 @@ void shouldAcceptSourceTableRowsInTrialRequest() {
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldAcceptSourceTableRowsInTrialRequest test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldAcceptSourceTableRowsInTrialRequest test
 ```
 
 Expected: compile failure because `TrialLoanRowReq` and `loans` do not exist.
@@ -309,7 +309,7 @@ Keep legacy fields temporarily so the application compiles during migration.
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldAcceptSourceTableRowsInTrialRequest test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldAcceptSourceTableRowsInTrialRequest test
 ```
 
 Expected: PASS.
@@ -361,7 +361,7 @@ void shouldMapLoanFacilityRatingAndCollateralPoolIntoEngineContext() {
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldMapLoanFacilityRatingAndCollateralPoolIntoEngineContext test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldMapLoanFacilityRatingAndCollateralPoolIntoEngineContext test
 ```
 
 Expected: compile failure for missing context fields/classes.
@@ -413,7 +413,7 @@ Create simple `@Data` classes for `FacilityInput`, `RepaymentScheduleInput`, and
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldMapLoanFacilityRatingAndCollateralPoolIntoEngineContext test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest#shouldMapLoanFacilityRatingAndCollateralPoolIntoEngineContext test
 ```
 
 Expected: compile failure only because assembler is not implemented.
@@ -456,7 +456,7 @@ void shouldRejectTrialWithoutLoanRows() {
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest test
 ```
 
 Expected: compile failure or assertion failure because `TrialSourceAssembler` does not exist.
@@ -520,7 +520,7 @@ Inject `TrialSourceAssembler`. In `runTrial`, if `req.getLoans()` is not empty, 
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialSourceAssemblerTest test
 ```
 
 Expected: PASS.
@@ -605,7 +605,7 @@ Risk group DTOs must no longer expose `customerType` or `regionCode`.
 Run:
 
 ```bash
-mvn -pl ecl-data,ecl-parameter -am test
+cd ecl-system && mvn -pl ecl-data,ecl-parameter -am test
 ```
 
 Expected: PASS.
@@ -662,7 +662,7 @@ void shouldIgnoreCustomerTypeAndRegionCode() {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=RiskGroupEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=RiskGroupEngineTest test
 ```
 
 Expected: at least the blank-source test fails under current code.
@@ -697,7 +697,7 @@ return ruleValue.equals(assetValue);
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=RiskGroupEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=RiskGroupEngineTest test
 ```
 
 Expected: PASS.
@@ -759,7 +759,7 @@ void shouldBlockStage3DirectRollbackToStage1() {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=StageEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=StageEngineTest test
 ```
 
 Expected: failure because `is_npl` and direct Stage3 rollback logic are not supported.
@@ -795,7 +795,7 @@ if (lastStage == Stage.STAGE_3 && targetStage == Stage.STAGE_1) {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=StageEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=StageEngineTest test
 ```
 
 Expected: PASS.
@@ -853,7 +853,7 @@ void shouldBlockWhenMaturityDateMissing() {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=PdEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=PdEngineTest test
 ```
 
 Expected: failure because rating agency and maturity blocking are not implemented.
@@ -888,7 +888,7 @@ After maturity validation, if stage is `STAGE_3`, create one scenario result per
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=PdEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=PdEngineTest test
 ```
 
 Expected: PASS.
@@ -946,7 +946,7 @@ void shouldAllocateFacilityUndrawnAmountByAmtFinancedShare() {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=EadEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=EadEngineTest test
 ```
 
 Expected: failure because current engine does not use schedules or facility allocation.
@@ -975,7 +975,7 @@ asset.offBsEad = offBsPool * assetShare;
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=EadEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=EadEngineTest test
 ```
 
 Expected: PASS.
@@ -1025,7 +1025,7 @@ void shouldCalculatePoolLgdFromCollateralNetValueAndPoolEad() {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=LgdEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=LgdEngineTest test
 ```
 
 Expected: failure because pool-level LGD is not implemented.
@@ -1058,7 +1058,7 @@ Assign `lgdPool` to every asset in the pool.
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=LgdEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=LgdEngineTest test
 ```
 
 Expected: PASS.
@@ -1123,7 +1123,7 @@ void shouldUseLowestPriorityWhenEquivalentRatioTies() {
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=EclCalcEngineTest,OverlayEngineTest,OutputEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=EclCalcEngineTest,OverlayEngineTest,OutputEngineTest test
 ```
 
 Expected: failure because scenario ECL and overlay tie-break are not implemented.
@@ -1152,7 +1152,7 @@ Serialize `pdScenarioResults`, `eclScenarioResults`, `eadBreakdown`, and `lgdDet
 Run:
 
 ```bash
-mvn -pl ecl-engine -Dtest=EclCalcEngineTest,OverlayEngineTest,OutputEngineTest test
+cd ecl-system && mvn -pl ecl-engine -Dtest=EclCalcEngineTest,OverlayEngineTest,OutputEngineTest test
 ```
 
 Expected: PASS.
@@ -1203,7 +1203,7 @@ void shouldExposeEadLgdAndScenarioDetailsInTrialSteps() {
 Run:
 
 ```bash
-mvn -pl ecl-calculation -Dtest=TrialCalculationServiceTest test
+cd ecl-system && mvn -pl ecl-calculation -Dtest=TrialCalculationServiceTest test
 ```
 
 Expected: failure until result mapping exposes new details.
@@ -1227,7 +1227,7 @@ PD rows should use `PdScenarioResult`. ECL rows should use `EclScenarioResult`.
 Run:
 
 ```bash
-mvn -pl ecl-calculation test
+cd ecl-system && mvn -pl ecl-calculation test
 ```
 
 Expected: PASS.
@@ -1408,7 +1408,7 @@ git commit -m "feat: align parameter pages with engine fields"
 Run:
 
 ```bash
-mvn test
+cd ecl-system && mvn test
 ```
 
 Expected: PASS.
