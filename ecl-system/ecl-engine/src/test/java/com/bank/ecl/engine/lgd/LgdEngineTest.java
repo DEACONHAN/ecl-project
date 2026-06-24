@@ -59,7 +59,7 @@ class LgdEngineTest {
         return e;
     }
 
-    private CollateralInput collateral(String collateralType, String collateralCategory, double appraisalValue) {
+    private CollateralInput collateral(String collateralCategory, String collateralType, double appraisalValue) {
         CollateralInput c = new CollateralInput();
         c.setCollateralType(collateralType);
         c.setCollateralCategory(collateralCategory);
@@ -116,6 +116,6 @@ class LgdEngineTest {
 
         engine.execute(ctx);
 
-        assertEquals(0.17, asset.getLgdValue(), 0.01);
+        assertEquals(0.226, asset.getLgdValue(), 0.01);
     }
 }
