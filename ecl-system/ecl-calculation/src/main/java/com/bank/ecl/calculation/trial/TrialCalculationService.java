@@ -34,6 +34,7 @@ public class TrialCalculationService {
     private final EclSchemeMapper eclSchemeMapper;
     private final RiskGroupMapper riskGroupMapper;
     private final EclJobMapper eclJobMapper;
+    private final TrialSourceAssembler trialSourceAssembler;
 
     @Transactional(rollbackFor = Exception.class)
     public TrialCalculationResp runTrial(TrialCalculationReq req) {
@@ -46,22 +47,34 @@ public class TrialCalculationService {
         long start = System.currentTimeMillis();
 
         String jobId = "TRIAL-" + UUID.randomUUID().toString().replace("-", "").substring(0, 26);
-        JobContext ctx = buildJobContext(jobId, scheme, calcDate);
-
-        // Build assets — multi-asset or single-asset
+        JobContext ctx;
         List<AssetInput> assets;
-        if (req.getAssets() != null && !req.getAssets().isEmpty()) {
-            assets = req.getAssets().stream()
-                    .map(r -> buildAssetFromReq(r, calcDate))
+        if (req.getLoans() != null && !req.getLoans().isEmpty()) {
+            ctx = trialSourceAssembler.assemble(jobId, scheme.getSchemeId(), calcDate, req,
+                    scheme.getDiscountRate() != null ? scheme.getDiscountRate().doubleValue() : 0.05,
+                    scheme.getDefaultCcf() != null ? scheme.getDefaultCcf().doubleValue() : 0.0,
+                    scheme.getDefaultLgd() != null ? scheme.getDefaultLgd().doubleValue() : 0.45,
+                    0.1);
+            assets = ctx.getCustomers().stream()
+                    .flatMap(c -> c.getAssets().stream())
                     .collect(Collectors.toList());
         } else {
-            assets = List.of(buildAssetFromReq(AssetInputReq.from(req), calcDate));
-        }
+            ctx = buildJobContext(jobId, scheme, calcDate);
 
-        CustomerContext customer = new CustomerContext();
-        customer.setCustomerId("TRIAL_CUST");
-        customer.setAssets(assets);
-        ctx.setCustomers(List.of(customer));
+            // Build assets — multi-asset or single-asset
+            if (req.getAssets() != null && !req.getAssets().isEmpty()) {
+                assets = req.getAssets().stream()
+                        .map(r -> buildAssetFromReq(r, calcDate))
+                        .collect(Collectors.toList());
+            } else {
+                assets = List.of(buildAssetFromReq(AssetInputReq.from(req), calcDate));
+            }
+
+            CustomerContext customer = new CustomerContext();
+            customer.setCustomerId("TRIAL_CUST");
+            customer.setAssets(assets);
+            ctx.setCustomers(List.of(customer));
+        }
 
         // Execute
         dispatcher.execute(ctx);
@@ -135,10 +148,12 @@ public class TrialCalculationService {
         JobContext ctx = new JobContext();
         ctx.setJobId(jobId);
         ctx.setSchemeId(scheme.getSchemeId());
+        ctx.setCalcDate(calcDate);
         ctx.setTrialMode(true);
         ctx.setDiscountRate(scheme.getDiscountRate() != null ? scheme.getDiscountRate().doubleValue() : 0.05);
         ctx.setDefaultCcf(scheme.getDefaultCcf() != null ? scheme.getDefaultCcf().doubleValue() : 0.0);
         ctx.setDefaultLgd(scheme.getDefaultLgd() != null ? scheme.getDefaultLgd().doubleValue() : 0.45);
+        ctx.setLgdFloor(0.1);
         return ctx;
     }
 

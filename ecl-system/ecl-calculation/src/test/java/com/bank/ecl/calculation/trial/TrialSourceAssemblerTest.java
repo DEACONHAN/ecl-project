@@ -2,6 +2,7 @@ package com.bank.ecl.calculation.trial;
 
 import com.bank.ecl.calculation.trial.dto.TrialCalculationReq;
 import com.bank.ecl.calculation.trial.dto.TrialLoanRowReq;
+import com.bank.ecl.common.exception.EclException;
 import com.bank.ecl.engine.core.AssetInput;
 import com.bank.ecl.engine.core.CollateralInput;
 import com.bank.ecl.engine.core.CustomerContext;
@@ -16,8 +17,24 @@ import java.util.HashMap;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TrialSourceAssemblerTest {
+
+    private final TrialSourceAssembler assembler = new TrialSourceAssembler();
+
+    @Test
+    void shouldRejectTrialWithoutLoanRows() {
+        TrialCalculationReq req = new TrialCalculationReq();
+        req.setLoans(List.of());
+
+        EclException ex = assertThrows(EclException.class,
+                () -> assembler.assemble("JOB_001", "SCH_001", LocalDate.of(2026, 6, 24), req,
+                        0.05, 0.0, 0.45, 0.1));
+
+        assertTrue(ex.getMessage().contains("借据信息表不能为空"));
+    }
 
     @Test
     void shouldAcceptSourceTableRowsInTrialRequest() {
