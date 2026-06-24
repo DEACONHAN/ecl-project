@@ -67,7 +67,11 @@ public class StageEngine implements EclEngine {
                 .collect(Collectors.groupingBy(
                         CrrRatingDropRuleEntity::getGroupId,
                         Collectors.toMap(
-                                CrrRatingDropRuleEntity::getCurrentRating,
+                                r -> ratingDropKey(
+                                        r.getGroupId(),
+                                        r.getRatingSystem(),
+                                        r.getRatingAgency(),
+                                        r.getCurrentRating()),
                                 CrrRatingDropRuleEntity::getDropThreshold,
                                 (a, b) -> a)));
 
@@ -138,6 +142,13 @@ public class StageEngine implements EclEngine {
         }
 
         // ═══ Step 2: ROLLBACK 回跳校验 ═══
+        // 直接阻断 STAGE_3 → STAGE_1 回跳（业务规则：阶段三不可直接回跳至阶段一）
+        if (lastStage == Stage.STAGE_3 && targetStage == Stage.STAGE_1) {
+            log.debug("[6.2 Stage] asset {} direct rollback STAGE_3 -> STAGE_1 blocked",
+                    asset.getAssetId());
+            return new StageResult(lastStage, "ROLLBACK_BLOCKED", true);
+        }
+
         if (targetStage.ordinal() < lastStage.ordinal()) {
             // 阶段改善，需要回跳校验
             boolean rollbackAllowed = false;
@@ -208,5 +219,24 @@ public class StageEngine implements EclEngine {
             log.debug("[6.2 Stage] failed to extract trigger type from: {}", conditionsJson);
         }
         return "rule_match";
+    }
+
+    /**
+     * 构建包含 ratingSystem 和 ratingAgency 的评级下降 key。
+     */
+    private String ratingDropKey(String groupId, String ratingSystem, String ratingAgency, String currentRating) {
+        return String.join("|",
+                nvl(groupId),
+                nvl(ratingSystem, "INTERNAL_CRR"),
+                nvl(ratingAgency, "INTERNAL_CRR"),
+                nvl(currentRating));
+    }
+
+    private static String nvl(String value) {
+        return value != null ? value : "";
+    }
+
+    private static String nvl(String value, String defaultVal) {
+        return value != null ? value : defaultVal;
     }
 }

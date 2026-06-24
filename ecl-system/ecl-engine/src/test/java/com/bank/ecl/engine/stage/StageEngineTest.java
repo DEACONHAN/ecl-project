@@ -39,6 +39,14 @@ class StageEngineTest {
 
     // ---- helpers ----
 
+    private AssetInput asset(String groupId, Stage lastStage) {
+        AssetInput a = new AssetInput();
+        a.setAssetId("AST_001");
+        a.setGroupId(groupId);
+        a.setLastStage(lastStage);
+        return a;
+    }
+
     private AssetInput asset(String groupId, Stage lastStage,
                              Integer overdueDays, String crrRating,
                              String fiveCategory, Boolean defaultFlag,
@@ -246,6 +254,35 @@ class StageEngineTest {
 
         assertEquals(Stage.STAGE_3, a.getStageResult().getStage());
         assertFalse(a.getStageResult().isExceptionFlag());
+    }
+
+    @Test
+    void shouldUseIsNplForStage3DefaultRule() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_3", "{\"is_npl\":\"Y\"}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+
+        AssetInput asset = asset("GRP_001", Stage.STAGE_1);
+        asset.setIsNpl("Y");
+
+        engine.execute(jobCtx("SCH_001", List.of(asset)));
+
+        assertEquals(Stage.STAGE_3, asset.getStageResult().getStage());
+    }
+
+    @Test
+    void shouldBlockStage3DirectRollbackToStage1() {
+        StageRuleEntity rollback = rollbackRule("GRP_001", "STAGE_3", "STAGE_1", "{\"normal_consecutive_days\":{\"min\":180}}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rollback));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+
+        AssetInput asset = asset("GRP_001", Stage.STAGE_3);
+        asset.setNormalConsecutiveDays(365);
+
+        engine.execute(jobCtx("SCH_001", List.of(asset)));
+
+        assertEquals(Stage.STAGE_3, asset.getStageResult().getStage());
+        assertEquals("ROLLBACK_BLOCKED", asset.getStageResult().getTriggerType());
     }
 
     @Test
