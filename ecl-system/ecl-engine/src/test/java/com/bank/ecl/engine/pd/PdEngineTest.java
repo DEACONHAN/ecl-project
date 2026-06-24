@@ -41,12 +41,24 @@ class PdEngineTest {
     private PdCurveEntity curve(String groupId, String ratingCode, Long scenarioId, double pd) {
         PdCurveEntity c = new PdCurveEntity();
         c.setGroupId(groupId); c.setRatingCode(ratingCode);
-        c.setScenarioId(scenarioId); c.setPdValue(BigDecimal.valueOf(pd)); return c;
+        c.setScenarioId(scenarioId); c.setPdValue(BigDecimal.valueOf(pd));
+        c.setRatingSystem("INTERNAL_CRR"); c.setRatingAgency("INTERNAL_CRR");
+        return c;
+    }
+
+    private PdCurveEntity curve(String groupId, String ratingSystem, String ratingAgency,
+                                String ratingCode, Long scenarioId, double pd) {
+        PdCurveEntity c = new PdCurveEntity();
+        c.setGroupId(groupId); c.setRatingSystem(ratingSystem);
+        c.setRatingAgency(ratingAgency); c.setRatingCode(ratingCode);
+        c.setScenarioId(scenarioId); c.setPdValue(BigDecimal.valueOf(pd));
+        return c;
     }
 
     private AssetInput asset(String groupId, String ratingCode, Stage stage) {
         AssetInput a = new AssetInput();
         a.setAssetId("AST_001"); a.setGroupId(groupId); a.setRatingCode(ratingCode);
+        a.setCrrFinal(ratingCode);
         a.setStageResult(new StageResult(stage, "test", false));
         a.setMaturityDate(LocalDate.of(2028, 6, 21));
         a.setCalcDate(LocalDate.of(2026, 6, 21));
@@ -166,5 +178,36 @@ class PdEngineTest {
         engine.execute(ctx("SCH_001", a));
 
         assertEquals("ECL_001", a.getPdException());
+    }
+
+    @Test
+    void shouldUseExternalRatingAgencyForExternalGroup() {
+        AssetInput asset = asset("GRP_003", null, Stage.STAGE_1);
+        asset.setExtRatingThisYear("A1");
+        asset.setExtRatingCoThisYear("MOODY");
+
+        PdCurveEntity curve = curve("GRP_003", "INTERNATIONAL_EXTERNAL", "MOODY", "A1", 1L, 0.02);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(scenario(1L, "BASE", "基准", 1.0)));
+        when(curveMapper.selectList(any())).thenReturn(List.of(curve));
+
+        engine.execute(ctx("SCH_001", asset));
+
+        assertNull(asset.getPdException());
+        assertEquals(0.02, asset.getPdScenarioResults().get(0).getPdValue(), 0.0001);
+    }
+
+    @Test
+    void shouldBlockWhenMaturityDateMissing() {
+        AssetInput asset = asset("GRP_001", "CRR5", Stage.STAGE_1);
+        asset.setMaturityDate(null);
+
+        PdScenarioEntity s = scenario(1L, "BASELINE", "基准", 1.0);
+        PdCurveEntity c = curve("GRP_001", "CRR5", 1L, 0.02);
+        when(scenarioMapper.selectList(any())).thenReturn(List.of(s));
+        when(curveMapper.selectList(any())).thenReturn(List.of(c));
+
+        engine.execute(ctx("SCH_001", asset));
+
+        assertEquals("ECL_001", asset.getPdException());
     }
 }

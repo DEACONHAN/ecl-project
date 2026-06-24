@@ -63,26 +63,60 @@ public class PdEngine implements EclEngine {
     private void processAsset(AssetInput asset, List<PdScenarioEntity> scenarios,
                               Map<String, Double> cache) {
         String groupId = asset.getGroupId();
-        String ratingCode = asset.getRatingCode();
+        StageResult sr = asset.getStageResult();
+        Stage stage = sr != null ? sr.getStage() : Stage.STAGE_1;
+
+        // Maturity validation: block if missing (skip for STAGE_3)
+        if (stage != Stage.STAGE_3 && asset.getMaturityDate() == null) {
+            asset.setPdException("ECL_001");
+            return;
+        }
+
+        // Resolve rating source based on group
+        RatingSelection rating = resolveRatingSource(asset);
+        String ratingSystem = rating.ratingSystem;
+        String ratingAgency = rating.ratingAgency;
+        String ratingCode = rating.ratingCode;
+
         List<PdDetail> details = new ArrayList<>();
+        List<PdScenarioResult> scenarioResults = new ArrayList<>();
         double pd12m = 0.0;
         boolean hasMissing = false;
 
         for (PdScenarioEntity s : scenarios) {
-            String key = groupId + "|" + ratingCode + "|" + s.getScenarioId();
-            Double pdValue = cache.get(key);
-            if (pdValue == null) {
-                hasMissing = true;
-                continue;
+            double pdValue;
+
+            if (stage == Stage.STAGE_3) {
+                // Stage 3: default to 1.0 per scenario, no curve lookup
+                pdValue = 1.0;
+            } else {
+                String key = groupId + "|" + s.getScenarioId() + "|"
+                        + ratingSystem + "|" + ratingAgency + "|" + ratingCode;
+                Double cached = cache.get(key);
+                if (cached == null) {
+                    hasMissing = true;
+                    continue;
+                }
+                pdValue = cached;
             }
+
             double weight = s.getWeight() != null ? s.getWeight().doubleValue() : 0.0;
             double weighted = pdValue * weight;
             pd12m += weighted;
             details.add(new PdDetail(s.getScenarioType(), s.getScenarioName(),
                     s.getWeight(), pdValue, weighted));
+
+            // Populate raw pdScenarioResults (no weighting in this engine)
+            PdScenarioResult psr = new PdScenarioResult();
+            psr.setScenarioType(s.getScenarioType());
+            psr.setScenarioName(s.getScenarioName());
+            psr.setWeight(s.getWeight());
+            psr.setPdValue(pdValue);
+            scenarioResults.add(psr);
         }
 
         asset.setPdDetails(details);
+        asset.setPdScenarioResults(scenarioResults);
         asset.setPd12m(pd12m);
 
         if (hasMissing || details.isEmpty()) {
@@ -90,9 +124,23 @@ public class PdEngine implements EclEngine {
         }
 
         // Stage 转换
-        StageResult sr = asset.getStageResult();
-        Stage stage = sr != null ? sr.getStage() : Stage.STAGE_1;
         asset.setPdLifetime(convertByStage(pd12m, stage, asset.getMaturityDate(), asset.getCalcDate()));
+    }
+
+    private record RatingSelection(String ratingSystem, String ratingAgency, String ratingCode) {}
+
+    private RatingSelection resolveRatingSource(AssetInput asset) {
+        String groupId = asset.getGroupId();
+        if (Set.of("GRP_003", "GRP_004").contains(groupId)) {
+            return new RatingSelection(
+                    "INTERNATIONAL_EXTERNAL",
+                    asset.getExtRatingCoThisYear(),
+                    asset.getExtRatingThisYear());
+        }
+        return new RatingSelection(
+                "INTERNAL_CRR",
+                "INTERNAL_CRR",
+                asset.getCrrFinal());
     }
 
     private double convertByStage(double pd12m, Stage stage, LocalDate maturity, LocalDate calcDate) {
@@ -120,7 +168,8 @@ public class PdEngine implements EclEngine {
                         .eq(PdCurveEntity::getSchemeId, schemeId));
         if (curves == null) return Collections.emptyMap();
         return curves.stream().collect(Collectors.toMap(
-                c -> c.getGroupId() + "|" + c.getRatingCode() + "|" + c.getScenarioId(),
+                c -> c.getGroupId() + "|" + c.getScenarioId() + "|"
+                        + c.getRatingSystem() + "|" + c.getRatingAgency() + "|" + c.getRatingCode(),
                 c -> c.getPdValue() != null ? c.getPdValue().doubleValue() : 0.0,
                 (a, b) -> a));
     }
