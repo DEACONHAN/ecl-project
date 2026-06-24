@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
@@ -43,6 +44,93 @@ class EadEngineTest {
         CcfCurveEntity e = new CcfCurveEntity();
         e.setProductType(productType); e.setCommitmentType(commitmentType);
         e.setCcfValue(BigDecimal.valueOf(value)); return e;
+    }
+
+    // ========== new helpers for task 9 ==========
+
+    private AssetInput asset(String assetId, String facilityCd, double amtFinancedCny) {
+        AssetInput a = new AssetInput();
+        a.setAssetId(assetId);
+        a.setFacilityCd(facilityCd);
+        a.setAmtFinancedCny(BigDecimal.valueOf(amtFinancedCny));
+        a.setProductType("公司贷款");
+        a.setCommitmentType("承诺");
+        a.setOutstandingBalance(BigDecimal.ZERO);
+        a.setAccruedInterest(BigDecimal.ZERO);
+        a.setTotalLimit(BigDecimal.ZERO);
+        return a;
+    }
+
+    private RepaymentScheduleInput schedule(LocalDate dueDate, double duePrincipal, double dueInterest) {
+        RepaymentScheduleInput s = new RepaymentScheduleInput();
+        s.setDueDate(dueDate);
+        s.setDuePrincipal(BigDecimal.valueOf(duePrincipal));
+        s.setDueInterest(BigDecimal.valueOf(dueInterest));
+        return s;
+    }
+
+    private AssetInput assetWithSchedule(String assetId, String facilityCd) {
+        AssetInput a = new AssetInput();
+        a.setAssetId(assetId);
+        a.setFacilityCd(facilityCd);
+        a.setProductType("公司贷款");
+        a.setCommitmentType("承诺");
+        a.setOutstandingBalance(BigDecimal.valueOf(1000));
+        a.setAccruedInterest(BigDecimal.ZERO);
+        a.setTotalLimit(BigDecimal.valueOf(1000));
+        return a;
+    }
+
+    private JobContext ctxWithFacility(AssetInput... assets) {
+        FacilityInput facility = new FacilityInput();
+        facility.setFacilityCd("FAC_001");
+        facility.setUndrawnAmtCny(BigDecimal.valueOf(100));
+
+        JobContext c = new JobContext();
+        c.setSchemeId("SCH_001");
+        c.setDefaultCcf(1.0);
+        c.setDiscountRate(0.05);
+        c.setCalcDate(LocalDate.of(2026, 6, 24));
+        c.setFacilities(List.of(facility));
+
+        CcfCurveEntity curve = ccf("公司贷款", "承诺", 1.0);
+        when(ccfMapper.selectList(any())).thenReturn(List.of(curve));
+
+        CustomerContext cust = new CustomerContext();
+        cust.setCustomerId("CUST_001");
+        cust.setAssets(List.of(assets));
+        c.setCustomers(List.of(cust));
+
+        return c;
+    }
+
+    // ========== new tests for task 9 ==========
+
+    @Test
+    void shouldDiscountOnlyFutureRepaymentPeriods() {
+        AssetInput asset = assetWithSchedule("LN_001", "FAC_001");
+        asset.setCalcDate(LocalDate.of(2026, 6, 24));
+        asset.setRepaymentSchedules(List.of(
+                schedule(LocalDate.of(2026, 1, 1), 100, 10),
+                schedule(LocalDate.of(2027, 1, 1), 100, 10)
+        ));
+
+        engine.execute(ctxWithFacility(asset));
+
+        assertTrue(asset.getOnBsEad() > 0);
+        assertTrue(asset.getEadBreakdown().contains("futurePeriods=1"));
+    }
+
+    @Test
+    void shouldAllocateFacilityUndrawnAmountByAmtFinancedShare() {
+        AssetInput a1 = asset("LN_001", "FAC_001", 600);
+        AssetInput a2 = asset("LN_002", "FAC_001", 400);
+        JobContext ctx = ctxWithFacility(a1, a2);
+
+        engine.execute(ctx);
+
+        assertEquals(60.0, a1.getOffBsEad(), 0.01);
+        assertEquals(40.0, a2.getOffBsEad(), 0.01);
     }
 
     @Test void shouldCalcOnBsEadOnlyWhenNoUndrawn() {

@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -30,49 +32,162 @@ public class EadEngine implements EclEngine {
             log.warn("[6.4 EAD] schemeId null/blank, skipping"); return;
         }
 
-        Map<String, Double> ccfCache = buildCcfCache(schemeId);
+        List<CcfCurveEntity> curves = buildCcfCache(schemeId);
         double defaultCcf = ctx.getDefaultCcf();
-        log.info("[6.4 EAD] loaded {} CCF entries, defaultCcf={}", ccfCache.size(), defaultCcf);
+        double discountRate = ctx.getDiscountRate();
+        log.info("[6.4 EAD] loaded {} CCF entries, defaultCcf={}", curves.size(), defaultCcf);
 
         List<CustomerContext> customers = ctx.getCustomers();
         if (customers == null || customers.isEmpty()) { log.info("[6.4 EAD] no customers"); return; }
 
+        // Pass 1: On-balance EAD for all assets
+        List<AssetInput> allAssets = new ArrayList<>();
         for (CustomerContext customer : customers) {
             if (customer == null || customer.getAssets() == null) continue;
             for (AssetInput asset : customer.getAssets()) {
                 if (asset == null) continue;
-                processAsset(asset, ccfCache, defaultCcf);
+                processOnBsEad(asset, discountRate);
+                allAssets.add(asset);
             }
         }
+
+        // Pass 2: Off-balance EAD
+        processOffBsEad(ctx, allAssets, curves, defaultCcf);
+
         log.info("[6.4 EAD] complete");
     }
 
-    private void processAsset(AssetInput asset, Map<String, Double> ccfCache, double defaultCcf) {
-        double balance = toDouble(asset.getOutstandingBalance());
-        double interest = toDouble(asset.getAccruedInterest());
-        double limit = toDouble(asset.getTotalLimit());
+    // ========== On-balance EAD ==========
 
-        double onBsEad = balance + interest;
-        asset.setOnBsEad(onBsEad);
-
-        double undrawn = Math.max(0.0, limit - balance);
-        String ccfKey = asset.getProductType() + "|" + asset.getCommitmentType();
-        double ccf = ccfCache.getOrDefault(ccfKey, defaultCcf);
-        double offBsEad = undrawn * ccf;
-        asset.setOffBsEad(offBsEad);
-
-        asset.setTotalEad(onBsEad + offBsEad);
+    private void processOnBsEad(AssetInput asset, double discountRate) {
+        List<RepaymentScheduleInput> schedules = asset.getRepaymentSchedules();
+        if (schedules != null && !schedules.isEmpty() && asset.getCalcDate() != null) {
+            double sum = 0.0;
+            int futurePeriods = 0;
+            for (RepaymentScheduleInput s : schedules) {
+                if (s == null || s.getDueDate() == null) continue;
+                if (s.getDueDate().isAfter(asset.getCalcDate())) {
+                    double principal = toDouble(s.getDuePrincipal());
+                    double interest = toDouble(s.getDueInterest());
+                    double amount = principal + interest;
+                    double years = ChronoUnit.DAYS.between(asset.getCalcDate(), s.getDueDate()) / 365.0;
+                    double discounted = amount / Math.pow(1 + discountRate, years);
+                    sum += discounted;
+                    futurePeriods++;
+                }
+            }
+            asset.setOnBsEad(sum);
+            asset.setEadBreakdown("futurePeriods=" + futurePeriods);
+        } else {
+            double onBsEad = toDouble(asset.getOutstandingBalance()) + toDouble(asset.getAccruedInterest());
+            asset.setOnBsEad(onBsEad);
+        }
     }
 
-    private Map<String, Double> buildCcfCache(String schemeId) {
+    // ========== Off-balance EAD ==========
+
+    private void processOffBsEad(JobContext ctx, List<AssetInput> allAssets,
+                                  List<CcfCurveEntity> curves, double defaultCcf) {
+        // Build facility lookup map
+        Map<String, FacilityInput> facilityMap = new HashMap<>();
+        if (ctx.getFacilities() != null) {
+            for (FacilityInput f : ctx.getFacilities()) {
+                if (f != null && f.getFacilityCd() != null) {
+                    facilityMap.put(f.getFacilityCd(), f);
+                }
+            }
+        }
+
+        // Track assets processed by facility allocation
+        Set<AssetInput> facilityProcessed = new HashSet<>();
+
+        // Group assets by facilityCd
+        Map<String, List<AssetInput>> byFacility = allAssets.stream()
+                .filter(a -> a.getFacilityCd() != null && !a.getFacilityCd().isBlank())
+                .collect(Collectors.groupingBy(AssetInput::getFacilityCd));
+
+        for (Map.Entry<String, List<AssetInput>> entry : byFacility.entrySet()) {
+            String facilityCd = entry.getKey();
+            List<AssetInput> groupAssets = entry.getValue();
+
+            FacilityInput facility = facilityMap.get(facilityCd);
+            if (facility == null) continue;
+
+            // Calculate undrawn amount
+            BigDecimal undrawnAmtCny = facility.getUndrawnAmtCny();
+            double undrawn;
+            if (undrawnAmtCny != null) {
+                undrawn = Math.max(0.0, undrawnAmtCny.doubleValue());
+            } else {
+                undrawn = Math.max(0.0, toDouble(facility.getLimitAmtCny()) - toDouble(facility.getUsedLimit()));
+            }
+
+            // Sum amtFinancedCny across group
+            double totalAmtFinanced = groupAssets.stream()
+                    .mapToDouble(a -> toDouble(a.getAmtFinancedCny()))
+                    .sum();
+            if (totalAmtFinanced <= 0) continue;
+
+            // Allocate off-balance EAD per asset
+            for (AssetInput asset : groupAssets) {
+                double ccf = findCcf(curves, asset, defaultCcf);
+                double offBsPool = undrawn * ccf;
+                double share = toDouble(asset.getAmtFinancedCny()) / totalAmtFinanced;
+                double offBsEad = offBsPool * share;
+                asset.setOffBsEad(offBsEad);
+                asset.setTotalEad(asset.getOnBsEad() + offBsEad);
+                facilityProcessed.add(asset);
+            }
+        }
+
+        // Remaining assets (no facility or facility not found): use old method
+        for (AssetInput asset : allAssets) {
+            if (facilityProcessed.contains(asset)) continue;
+            double undrawn = Math.max(0.0, toDouble(asset.getTotalLimit()) - toDouble(asset.getOutstandingBalance()));
+            double ccf = findCcf(curves, asset, defaultCcf);
+            double offBsEad = undrawn * ccf;
+            asset.setOffBsEad(offBsEad);
+            asset.setTotalEad(asset.getOnBsEad() + offBsEad);
+        }
+    }
+
+    // ========== CCF lookup ==========
+
+    private double findCcf(List<CcfCurveEntity> curves, AssetInput asset, double defaultCcf) {
+        if (curves == null || curves.isEmpty()) return defaultCcf;
+
+        String productType = asset.getProductType();
+        String commitmentType = asset.getCommitmentType();
+        Integer commitmentDays = asset.getCommitmentDays();
+
+        // If commitmentDays is set, prefer a curve whose days range covers it
+        if (commitmentDays != null) {
+            for (CcfCurveEntity c : curves) {
+                if (productType.equals(c.getProductType()) && commitmentType.equals(c.getCommitmentType())) {
+                    Integer min = c.getCommitmentDaysMin();
+                    Integer max = c.getCommitmentDaysMax();
+                    if (min != null && max != null && commitmentDays >= min && commitmentDays <= max) {
+                        return c.getCcfValue() != null ? c.getCcfValue().doubleValue() : 0.0;
+                    }
+                }
+            }
+        }
+
+        // Fallback: first matching productType|commitmentType
+        for (CcfCurveEntity c : curves) {
+            if (productType.equals(c.getProductType()) && commitmentType.equals(c.getCommitmentType())) {
+                return c.getCcfValue() != null ? c.getCcfValue().doubleValue() : 0.0;
+            }
+        }
+
+        return defaultCcf;
+    }
+
+    private List<CcfCurveEntity> buildCcfCache(String schemeId) {
         List<CcfCurveEntity> curves = ccfCurveMapper.selectList(
                 new LambdaQueryWrapper<CcfCurveEntity>()
                         .eq(CcfCurveEntity::getSchemeId, schemeId));
-        if (curves == null) return Collections.emptyMap();
-        return curves.stream().collect(Collectors.toMap(
-                c -> c.getProductType() + "|" + c.getCommitmentType(),
-                c -> c.getCcfValue() != null ? c.getCcfValue().doubleValue() : 0.0,
-                (a, b) -> a));
+        return curves != null ? curves : Collections.emptyList();
     }
 
     private double toDouble(BigDecimal v) { return v != null ? v.doubleValue() : 0.0; }
