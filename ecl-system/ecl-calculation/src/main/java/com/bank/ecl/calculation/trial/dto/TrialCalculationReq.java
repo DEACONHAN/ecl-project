@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -18,6 +19,13 @@ public class TrialCalculationReq {
 
     private LocalDate calcDate;
     private String scope = "SINGLE";
+
+    private List<TrialLoanRowReq> loans = new ArrayList<>();
+    private List<TrialFacilityRowReq> facilities = new ArrayList<>();
+    private List<TrialRepaymentRowReq> repaymentSchedules = new ArrayList<>();
+    private List<TrialCollateralRowReq> collaterals = new ArrayList<>();
+    private List<TrialRatingRowReq> ratings = new ArrayList<>();
+    private List<TrialHistoricalStageRowReq> historicalStages = new ArrayList<>();
 
     // === 6.1 风险分组入参 ===
     private String businessLine;
