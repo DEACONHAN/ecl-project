@@ -87,8 +87,8 @@ const RiskGroupConfig: React.FC = () => {
   const handleSaveDetail = async () => {
     const values = await detailForm.validateFields();
     if (!selectedGroupId) return;
-    if (!values.businessLine && !values.customerType && !values.productType &&
-        !values.industryCode && !values.regionCode && !values.collateralType) {
+    if (!values.businessLine && !values.productType &&
+        !values.industryCode && !values.collateralType) {
       message.error('至少填写一个匹配维度');
       return;
     }
@@ -210,10 +210,8 @@ const RiskGroupConfig: React.FC = () => {
                   <tr>
                     <th style={{ width: 70 }}>优先级</th>
                     <th>业务条线</th>
-                    <th>客户类型</th>
                     <th>产品类型</th>
                     <th style={{ width: 80 }}>行业</th>
-                    <th style={{ width: 80 }}>地区</th>
                     <th>担保类型</th>
                     <th style={{ width: 80 }}>操作</th>
                   </tr>
@@ -223,10 +221,8 @@ const RiskGroupConfig: React.FC = () => {
                     <tr key={d.detailId}>
                       <td>{d.priority}</td>
                       <td>{d.businessLine || <span className="wildcard">*</span>}</td>
-                      <td>{d.customerType || <span className="wildcard">*</span>}</td>
                       <td>{d.productType || <span className="wildcard">*</span>}</td>
                       <td>{d.industryCode || <span className="wildcard">*</span>}</td>
-                      <td>{d.regionCode || <span className="wildcard">*</span>}</td>
                       <td>{d.collateralType || <span className="wildcard">*</span>}</td>
                       <td>
                         <Space size={0}>
@@ -239,11 +235,11 @@ const RiskGroupConfig: React.FC = () => {
                     </tr>
                   ))}
                   {details.length === 0 && (
-                    <tr><td colSpan={8}><div className="ecl-empty-row">暂无匹配规则，请点击「新增规则」</div></td></tr>
+                    <tr><td colSpan={6}><div className="ecl-empty-row">暂无匹配规则，请点击「新增规则」</div></td></tr>
                   )}
                 </tbody>
               </table>
-              <div className="info-note ecl-info-note">空值字段 = 通配（不限制该维度）· 6 个维度全空禁止保存 · 引擎按优先级逐条匹配</div>
+              <div className="info-note ecl-info-note">空值字段 = 通配（不限制该维度）· 4 个维度全空禁止保存 · 引擎按优先级逐条匹配</div>
             </div>
           </div>
         </Panel>
@@ -279,10 +275,8 @@ const RiskGroupConfig: React.FC = () => {
           </Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
             <Form.Item name="businessLine" label="业务条线"><Input /></Form.Item>
-            <Form.Item name="customerType" label="客户类型"><Input /></Form.Item>
             <Form.Item name="productType" label="产品类型"><Input /></Form.Item>
             <Form.Item name="industryCode" label="行业代码"><Input /></Form.Item>
-            <Form.Item name="regionCode" label="地区代码"><Input /></Form.Item>
             <Form.Item name="collateralType" label="担保类型"><Input /></Form.Item>
           </div>
           <Typography.Text type="secondary">至少填写一个匹配维度</Typography.Text>

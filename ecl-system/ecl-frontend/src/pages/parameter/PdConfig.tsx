@@ -196,7 +196,7 @@ const PdConfig: React.FC = () => {
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingSystem: c.ratingSystem, ratingAgency: c.ratingAgency })),
       );
       message.success('曲线更新成功');
     } else {
@@ -205,7 +205,7 @@ const PdConfig: React.FC = () => {
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingSystem: c.ratingSystem, ratingAgency: c.ratingAgency })),
       );
       message.success('曲线新增成功');
     }
@@ -229,7 +229,7 @@ const PdConfig: React.FC = () => {
           selectedSchemeId,
           selectedGroupId,
           selectedScenarioId,
-          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingSystem: c.ratingSystem, ratingAgency: c.ratingAgency })),
         );
         message.success('已删除');
         loadCurves(selectedScenarioId);
@@ -248,7 +248,7 @@ const PdConfig: React.FC = () => {
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        curves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        curves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingSystem: c.ratingSystem, ratingAgency: c.ratingAgency })),
       );
       message.success('批量保存成功');
     } catch {
@@ -571,6 +571,8 @@ const PdConfig: React.FC = () => {
           <table className="ecl-table">
             <thead>
               <tr>
+                <th>评级系统</th>
+                <th>评级机构</th>
                 <th>评级代码</th>
                 <th>PD 值</th>
                 <th style={{ width: 160 }}>操作</th>
@@ -579,6 +581,8 @@ const PdConfig: React.FC = () => {
             <tbody>
               {curves.map((c) => (
                 <tr key={c.curveId}>
+                  <td>{c.ratingSystem || <span className="wildcard">*</span>}</td>
+                  <td>{c.ratingAgency || <span className="wildcard">*</span>}</td>
                   <td>{c.ratingCode}</td>
                   <td>{(c.pdValue * 100).toFixed(4)}%</td>
                   <td>
@@ -592,7 +596,7 @@ const PdConfig: React.FC = () => {
                 </tr>
               ))}
               {curves.length === 0 && (
-                <tr><td colSpan={3}><div className="ecl-empty-row">暂无曲线数据</div></td></tr>
+                <tr><td colSpan={5}><div className="ecl-empty-row">暂无曲线数据</div></td></tr>
               )}
             </tbody>
           </table>
@@ -663,6 +667,18 @@ const PdConfig: React.FC = () => {
         }}
       >
         <Form form={curveForm} layout="vertical">
+          <Form.Item
+            name="ratingSystem"
+            label="评级系统"
+          >
+            <Input placeholder="如：CRR, ECL" />
+          </Form.Item>
+          <Form.Item
+            name="ratingAgency"
+            label="评级机构"
+          >
+            <Input placeholder="如：S&P, Moody's" />
+          </Form.Item>
           <Form.Item
             name="ratingCode"
             label="评级代码"

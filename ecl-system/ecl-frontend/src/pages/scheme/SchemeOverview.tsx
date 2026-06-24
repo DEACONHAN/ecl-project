@@ -200,6 +200,10 @@ const SchemeOverview: React.FC = () => {
             <div className="ecl-info-label">默认 LGD (default_lgd)</div>
             <div className="ecl-info-value" style={{ color: 'var(--color-primary)' }}>{scheme.defaultLgd}</div>
           </div>
+          <div className="ecl-param-item" onClick={() => message.info('编辑LGD下限功能')}>
+            <div className="ecl-info-label">LGD 下限 (lgd_floor)</div>
+            <div className="ecl-info-value" style={{ color: 'var(--color-primary)' }}>{scheme.lgdFloor}</div>
+          </div>
         </div>
       </Panel>
 

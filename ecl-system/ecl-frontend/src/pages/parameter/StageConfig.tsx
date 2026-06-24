@@ -309,24 +309,68 @@ const StageConfig: React.FC = () => {
       Modal.info({
         title: '编辑评级阈值',
         content: (
-          <div style={{ marginTop: 16 }}>
-            <InputNumber
-              defaultValue={rule.downgradeThreshold}
-              min={0}
-              placeholder="下降级数"
-              onChange={(v) => {
-                if (v != null) {
+          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级系统</div>
+              <Input
+                defaultValue={rule.ratingSystem}
+                placeholder="评级系统"
+                onChange={(e) => {
                   stageApi.updateRatingRule(rule.ruleId!, {
                     ...rule,
-                    downgradeThreshold: v,
-                  }).then(() => {
-                    message.success('已更新');
-                    loadRules();
-                  });
-                }
-              }}
-            />
-            <span style={{ marginLeft: 8, color: 'var(--color-text-secondary)', fontSize: 13 }}>级</span>
+                    ratingSystem: e.target.value || undefined,
+                  }).then(() => { message.success('已更新'); loadRules(); });
+                }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级机构</div>
+              <Input
+                defaultValue={rule.ratingAgency}
+                placeholder="评级机构"
+                onChange={(e) => {
+                  stageApi.updateRatingRule(rule.ruleId!, {
+                    ...rule,
+                    ratingAgency: e.target.value || undefined,
+                  }).then(() => { message.success('已更新'); loadRules(); });
+                }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级代码</div>
+              <Input
+                defaultValue={rule.currentRating}
+                placeholder="评级代码"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    stageApi.updateRatingRule(rule.ruleId!, {
+                      ...rule,
+                      currentRating: e.target.value,
+                    }).then(() => { message.success('已更新'); loadRules(); });
+                  }
+                }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>下降阈值</div>
+              <InputNumber
+                defaultValue={rule.downgradeThreshold}
+                min={0}
+                placeholder="下降级数"
+                onChange={(v) => {
+                  if (v != null) {
+                    stageApi.updateRatingRule(rule.ruleId!, {
+                      ...rule,
+                      downgradeThreshold: v,
+                    }).then(() => {
+                      message.success('已更新');
+                      loadRules();
+                    });
+                  }
+                }}
+              />
+              <span style={{ marginLeft: 8, color: 'var(--color-text-secondary)', fontSize: 13 }}>级</span>
+            </div>
           </div>
         ),
       });
@@ -334,10 +378,14 @@ const StageConfig: React.FC = () => {
       // Add new rating rule — simple prompt
       let rating = '';
       let threshold = 3;
+      let ratingSystem = '';
+      let ratingAgency = '';
       Modal.confirm({
         title: '新增评级下降规则',
         content: (
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Input placeholder="评级系统（如 CRR）" onChange={(e) => (ratingSystem = e.target.value)} />
+            <Input placeholder="评级机构（如 S&P）" onChange={(e) => (ratingAgency = e.target.value)} />
             <Input placeholder="评级代码（如 CRR 1）" onChange={(e) => (rating = e.target.value)} />
             <InputNumber min={0} defaultValue={3} placeholder="下降阈值（级数）" onChange={(v) => (threshold = v || 3)} />
           </div>
@@ -347,6 +395,8 @@ const StageConfig: React.FC = () => {
           await stageApi.createRatingRule({
             schemeId: selectedSchemeId,
             groupId: selectedGroupId,
+            ratingSystem: ratingSystem || undefined,
+            ratingAgency: ratingAgency || undefined,
             currentRating: rating,
             downgradeThreshold: threshold,
           });
@@ -434,6 +484,8 @@ const StageConfig: React.FC = () => {
           stageApi.createRatingRule({
             schemeId: selectedSchemeId,
             groupId: selectedGroupId,
+            ratingSystem: r.ratingSystem,
+            ratingAgency: r.ratingAgency,
             currentRating: r.currentRating,
             downgradeThreshold: r.downgradeThreshold,
           })
@@ -1053,19 +1105,23 @@ const StageConfig: React.FC = () => {
                 <table className="ecl-table">
                   <thead>
                     <tr>
-                      <th style={{ width: 180 }}>评级代码</th>
-                      <th style={{ width: 160 }}>下降阈值</th>
+                      <th style={{ width: 120 }}>评级系统</th>
+                      <th style={{ width: 120 }}>评级机构</th>
+                      <th style={{ width: 150 }}>评级代码</th>
+                      <th style={{ width: 140 }}>下降阈值</th>
                       <th style={{ width: 100 }}>操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ratingRules.length === 0 && (
                       <tr>
-                        <td colSpan={3}><div className="ecl-empty-row">暂无评级下降规则</div></td>
+                        <td colSpan={5}><div className="ecl-empty-row">暂无评级下降规则</div></td>
                       </tr>
                     )}
                     {ratingRules.map((r) => (
                       <tr key={r.ruleId}>
+                        <td>{r.ratingSystem || <span className="wildcard">*</span>}</td>
+                        <td>{r.ratingAgency || <span className="wildcard">*</span>}</td>
                         <td style={{ fontWeight: 500 }}>{r.currentRating}</td>
                         <td>
                           <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
