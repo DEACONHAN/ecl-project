@@ -109,6 +109,7 @@ public class EclSchemeServiceImpl implements EclSchemeService {
         newEntity.setDiscountRate(source.getDiscountRate());
         newEntity.setDefaultCcf(source.getDefaultCcf());
         newEntity.setDefaultLgd(source.getDefaultLgd());
+        newEntity.setLgdFloor(source.getLgdFloor());
         newEntity.setCreatedBy("system");
         newEntity.setCreatedAt(LocalDateTime.now());
         newEntity.setDescription(description != null ? description : "从 " + source.getSchemeCode() + " 复制");
