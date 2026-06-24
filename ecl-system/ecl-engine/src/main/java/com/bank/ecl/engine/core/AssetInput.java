@@ -4,6 +4,10 @@ import com.bank.ecl.engine.pd.PdDetail;
 import com.bank.ecl.engine.stage.StageResult;
 import lombok.Data;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 借据输入及引擎逐层填充的中间结果。
  * 各引擎在 execute() 中读取/写入对应字段。
@@ -16,11 +20,23 @@ public class AssetInput {
     /** 借据 ID */
     private String assetId;
 
+    /** 授信额度编号 */
+    private String facilityCd;
+
     /** 所属客户 ID */
     private String customerId;
 
+    /** 客户号 */
+    private String customerNo;
+
+    /** 客户名称 */
+    private String customerName;
+
     /** 业务条线 */
     private String businessLine;
+
+    /** 客户分层 */
+    private String segment;
 
     /** 客户类型 */
     private String customerType;
@@ -36,6 +52,54 @@ public class AssetInput {
 
     /** 担保类型 */
     private String collateralType;
+
+    /** 业务类型 */
+    private String businessType;
+
+    /** 是否不良 */
+    private String isNpl;
+
+    /** 正常连续天数 */
+    private Integer normalConsecutiveDays;
+
+    /** 其他风险信息 */
+    private String otherRiskInfo;
+
+    /** 上年内部评级 */
+    private String crrIntLastYear;
+
+    /** 本年内部评级 */
+    private String crrIntThisYear;
+
+    /** 最终 CRR 评级 */
+    private String crrFinal;
+
+    /** 上年外部评级机构 */
+    private String extRatingCoLastYear;
+
+    /** 上年外部评级 */
+    private String extRatingLastYear;
+
+    /** 本年外部评级机构 */
+    private String extRatingCoThisYear;
+
+    /** 本年外部评级 */
+    private String extRatingThisYear;
+
+    /** 融资本金折人民币 */
+    private BigDecimal amtFinancedCny;
+
+    /** 逾期本金 */
+    private BigDecimal overduePrincipal;
+
+    /** 逾期利息 */
+    private BigDecimal overdueInterest;
+
+    /** 抵质押品池编号 */
+    private String collateralPoolId;
+
+    /** 还款计划 */
+    private List<RepaymentScheduleInput> repaymentSchedules = new ArrayList<>();
 
     // ========== 6.1 风险分组引擎输出 ==========
 
@@ -92,6 +156,9 @@ public class AssetInput {
     /** 各情景 PD 明细 */
     private java.util.List<PdDetail> pdDetails;
 
+    /** 试算各情景 PD 结果 */
+    private List<PdScenarioResult> pdScenarioResults = new ArrayList<>();
+
     /** 12 个月加权 PD */
     private double pd12m;
 
@@ -132,6 +199,9 @@ public class AssetInput {
     /** 异常码 */
     private String eadException;
 
+    /** EAD 计算明细 */
+    private String eadBreakdown;
+
     // ========== 6.5 LGD 计算引擎输出 ==========
 
     /** LGD 值 */
@@ -140,10 +210,16 @@ public class AssetInput {
     /** 异常码（"WARN"=走的兜底路径） */
     private String lgdException;
 
+    /** LGD 计算明细 */
+    private String lgdDetails;
+
     // ========== 6.6 ECL 计算引擎输出 ==========
 
     /** ECL 加权值 = pdLifetime × lgdValue × totalEad */
     private double eclValue;
+
+    /** 试算各情景 ECL 结果 */
+    private List<EclScenarioResult> eclScenarioResults = new ArrayList<>();
 
     // ========== 6.7 Overlay 计算引擎输出 ==========
 
