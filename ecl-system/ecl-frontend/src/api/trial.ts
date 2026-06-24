@@ -14,6 +14,87 @@ export interface TrialScenarioRowVO {
   highlight?: boolean;
 }
 
+// 6.1a 借据信息表行
+export interface TrialLoanRowReq {
+  id: string;
+  facilityCd?: string;
+  customerNo?: string;
+  customerName?: string;
+  industryCn?: string;
+  segment?: string;
+  productType?: string;
+  currencyCd?: string;
+  amtFinancedCny?: number;
+  loanBalCny?: number;
+  intAccruedCny?: number;
+  interestRate?: number;
+  loanStartDt?: string;
+  loanMaturityDt?: string;
+  overdueDays?: number;
+  isNpl?: string;
+  guaranteeType?: string;
+  normalConsecutiveDays?: number;
+  otherRiskInfo?: string;
+  businessType?: string;
+  overduePrincipal?: number;
+  overdueInterest?: number;
+}
+
+// 授信额度表行
+export interface TrialFacilityRowReq {
+  id: string;
+  customerNo?: string;
+  customerName?: string;
+  facilityType?: string;
+  currencyCd?: string;
+  totalLimitCny?: number;
+  usedLimitCny?: number;
+  availableLimitCny?: number;
+  effectiveDt?: string;
+  expiryDt?: string;
+  collateralPoolId?: string;
+  riskGrade?: string;
+}
+
+// 还款计划表行
+export interface TrialRepaymentRowReq {
+  id: string;
+  loanId?: string;
+  dueDt?: string;
+  duePrincipal?: number;
+  dueInterest?: number;
+  repaidPrincipal?: number;
+  repaidInterest?: number;
+  repaymentType?: string;
+}
+
+// 抵质押品表行
+export interface TrialCollateralRowReq {
+  id: string;
+  collateralPoolId?: string;
+  collateralType?: string;
+  collateralValueCny?: number;
+  coverageRatio?: number;
+  valuationDt?: string;
+}
+
+// 评级信息表行
+export interface TrialRatingRowReq {
+  id: string;
+  customerNo?: string;
+  ratingCode?: string;
+  ratingDate?: string;
+}
+
+// 历史阶段表行
+export interface TrialHistoricalStageRowReq {
+  id: string;
+  loanId?: string;
+  stage?: string;
+  stageDate?: string;
+  reasonCode?: string;
+}
+
 export interface AssetInputReq {
   assetId: string;
   businessLine?: string;
@@ -125,6 +206,14 @@ export interface TrialCalculationReq {
 
   /** 多借据模式 */
   assets?: AssetInputReq[];
+
+  // 源表数据 (Task 13)
+  loans?: TrialLoanRowReq[];
+  facilities?: TrialFacilityRowReq[];
+  repaymentSchedules?: TrialRepaymentRowReq[];
+  collaterals?: TrialCollateralRowReq[];
+  ratings?: TrialRatingRowReq[];
+  historicalStages?: TrialHistoricalStageRowReq[];
 }
 
 export const trialApi = {
