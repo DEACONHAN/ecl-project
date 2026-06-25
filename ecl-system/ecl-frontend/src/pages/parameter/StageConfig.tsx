@@ -42,6 +42,28 @@ const CONDITION_TYPE_OPTIONS = [
   '舆情事件',
 ];
 
+const RATING_AGENCY_OPTIONS = [
+  { label: '内部评级 (INTERNAL_CRR)', value: 'INTERNAL_CRR' },
+  { label: '穆迪 (MOODY)', value: 'MOODY' },
+  { label: '标普 (S&P)', value: 'S&P' },
+  { label: '惠誉 (FITCH)', value: 'FITCH' },
+];
+
+const INTERNAL_RATING_OPTIONS = [
+  'CRR1', 'CRR2', 'CRR3', 'CRR4', 'CRR5',
+  'CRR6', 'CRR7', 'CRR8', 'CRR9', 'CRR10',
+  'CRR11', 'CRR12', 'CRR13', 'CRR14',
+];
+
+const EXTERNAL_RATING_OPTIONS = [
+  'AAA', 'AA+', 'AA', 'AA-',
+  'A+', 'A', 'A-',
+  'BBB+', 'BBB', 'BBB-',
+  'BB+', 'BB', 'BB-',
+  'B+', 'B', 'B-',
+  'CCC', 'CC', 'C', 'D',
+];
+
 /** Parse jsonCondition string → ConditionJSON, or return empty default */
 function parseConditions(jsonStr?: string): ConditionItem[] {
   if (!jsonStr) return [];
@@ -334,29 +356,33 @@ const StageConfig: React.FC = () => {
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级机构/来源</div>
-              <Input
-                defaultValue={rule.ratingAgency}
-                placeholder="如 INTERNAL_CRR / MOODY / S&P"
-                onChange={(e) => {
+              <Select
+                style={{ width: '100%' }}
+                defaultValue={rule.ratingAgency || 'INTERNAL_CRR'}
+                options={RATING_AGENCY_OPTIONS}
+                onChange={(val) => {
                   stageApi.updateRatingRule(rule.ruleId!, {
                     ...rule,
-                    ratingAgency: e.target.value || undefined,
+                    ratingAgency: val,
                   }).then(() => { message.success('已更新'); loadRules(); });
                 }}
               />
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级代码</div>
-              <Input
+              <Select
+                style={{ width: '100%' }}
                 defaultValue={rule.currentRating}
-                placeholder="评级代码"
-                onChange={(e) => {
-                  if (e.target.value) {
-                    stageApi.updateRatingRule(rule.ruleId!, {
-                      ...rule,
-                      currentRating: e.target.value,
-                    }).then(() => { message.success('已更新'); loadRules(); });
-                  }
+                placeholder="选择评级"
+                options={(rule.ratingAgency && rule.ratingAgency !== 'INTERNAL_CRR'
+                  ? EXTERNAL_RATING_OPTIONS
+                  : INTERNAL_RATING_OPTIONS
+                ).map((r) => ({ label: r, value: r }))}
+                onChange={(val) => {
+                  stageApi.updateRatingRule(rule.ruleId!, {
+                    ...rule,
+                    currentRating: val,
+                  }).then(() => { message.success('已更新'); loadRules(); });
                 }}
               />
             </div>
@@ -384,21 +410,44 @@ const StageConfig: React.FC = () => {
         ),
       });
     } else {
-      // Add new rating rule — simple prompt
+      // Add new rating rule
       let rating = '';
       let threshold = 3;
-      let ratingAgency = '';
+      let ratingAgency = 'INTERNAL_CRR';
+      const allRatings = [...INTERNAL_RATING_OPTIONS, ...EXTERNAL_RATING_OPTIONS];
       Modal.confirm({
         title: '新增评级下降规则',
         content: (
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Input placeholder="评级机构/来源（如 INTERNAL_CRR、MOODY、S&P）" onChange={(e) => (ratingAgency = e.target.value)} />
-            <Input placeholder="评级代码（如 CRR 1）" onChange={(e) => (rating = e.target.value)} />
+            <select
+              style={{ width: '100%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }}
+              onChange={(e) => { ratingAgency = e.target.value; }}
+            >
+              {RATING_AGENCY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <select
+              style={{ width: '100%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d9d9d9', fontSize: 14 }}
+              onChange={(e) => { rating = e.target.value; }}
+            >
+              <option value="">请选择评级</option>
+              <optgroup label="内部评级">
+                {INTERNAL_RATING_OPTIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </optgroup>
+              <optgroup label="外部评级">
+                {EXTERNAL_RATING_OPTIONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </optgroup>
+            </select>
             <InputNumber min={0} defaultValue={3} placeholder="下降阈值（级数）" onChange={(v) => (threshold = v || 3)} />
           </div>
         ),
         onOk: async () => {
-          if (!rating) { message.warning('请输入评级代码'); return; }
+          if (!rating) { message.warning('请选择评级代码'); return; }
           await stageApi.createRatingRule({
             schemeId: selectedSchemeId,
             groupId: selectedGroupId,
