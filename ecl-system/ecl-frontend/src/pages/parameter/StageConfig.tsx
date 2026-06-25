@@ -20,6 +20,10 @@ interface ConditionItem {
   operator: string;
   value?: string | number;
   values?: string[];
+  min?: number;
+  max?: number;
+  minExclusive?: boolean;
+  maxExclusive?: boolean;
 }
 
 interface ConditionJSON {
@@ -29,6 +33,7 @@ interface ConditionJSON {
 
 const CONDITION_TYPE_OPTIONS = [
   '逾期天数',
+  '逾期天数范围',
   '五级分类',
   'CRR 评级下降',
   '违约标识',
@@ -57,8 +62,25 @@ function serializeConditions(conditions: ConditionItem[], logic: 'OR' | 'AND'): 
 function conditionLabel(c: ConditionItem): string {
   switch (c.type) {
     case '逾期天数': {
-      const op = c.operator === 'lte' ? '≤' : '≥';
+      const opMap: Record<string, string> = {
+        gt: '>',
+        gte: '≥',
+        lt: '<',
+        lte: '≤',
+      };
+      const op = opMap[c.operator] || '≥';
       return `逾期 ${op} ${c.value} 天`;
+    }
+    case '逾期天数范围': {
+      const parts: string[] = [];
+      if (c.min != null) {
+        parts.push(c.minExclusive ? `${c.min} < ` : `${c.min} ≤ `);
+      }
+      parts.push('逾期天数');
+      if (c.max != null) {
+        parts.push(c.maxExclusive ? ` < ${c.max}` : ` ≤ ${c.max}`);
+      }
+      return parts.join('');
     }
     case '五级分类': {
       const op = c.operator === 'not_in' ? '不属于' : '属于';
@@ -311,23 +333,10 @@ const StageConfig: React.FC = () => {
         content: (
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级系统</div>
-              <Input
-                defaultValue={rule.ratingSystem}
-                placeholder="评级系统"
-                onChange={(e) => {
-                  stageApi.updateRatingRule(rule.ruleId!, {
-                    ...rule,
-                    ratingSystem: e.target.value || undefined,
-                  }).then(() => { message.success('已更新'); loadRules(); });
-                }}
-              />
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级机构</div>
+              <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级机构/来源</div>
               <Input
                 defaultValue={rule.ratingAgency}
-                placeholder="评级机构"
+                placeholder="如 INTERNAL_CRR / MOODY / S&P"
                 onChange={(e) => {
                   stageApi.updateRatingRule(rule.ruleId!, {
                     ...rule,
@@ -378,14 +387,12 @@ const StageConfig: React.FC = () => {
       // Add new rating rule — simple prompt
       let rating = '';
       let threshold = 3;
-      let ratingSystem = '';
       let ratingAgency = '';
       Modal.confirm({
         title: '新增评级下降规则',
         content: (
           <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Input placeholder="评级系统（如 CRR）" onChange={(e) => (ratingSystem = e.target.value)} />
-            <Input placeholder="评级机构（如 S&P）" onChange={(e) => (ratingAgency = e.target.value)} />
+            <Input placeholder="评级机构/来源（如 INTERNAL_CRR、MOODY、S&P）" onChange={(e) => (ratingAgency = e.target.value)} />
             <Input placeholder="评级代码（如 CRR 1）" onChange={(e) => (rating = e.target.value)} />
             <InputNumber min={0} defaultValue={3} placeholder="下降阈值（级数）" onChange={(v) => (threshold = v || 3)} />
           </div>
@@ -395,7 +402,6 @@ const StageConfig: React.FC = () => {
           await stageApi.createRatingRule({
             schemeId: selectedSchemeId,
             groupId: selectedGroupId,
-            ratingSystem: ratingSystem || undefined,
             ratingAgency: ratingAgency || undefined,
             currentRating: rating,
             downgradeThreshold: threshold,
@@ -484,7 +490,6 @@ const StageConfig: React.FC = () => {
           stageApi.createRatingRule({
             schemeId: selectedSchemeId,
             groupId: selectedGroupId,
-            ratingSystem: r.ratingSystem,
             ratingAgency: r.ratingAgency,
             currentRating: r.currentRating,
             downgradeThreshold: r.downgradeThreshold,
@@ -1105,8 +1110,7 @@ const StageConfig: React.FC = () => {
                 <table className="ecl-table">
                   <thead>
                     <tr>
-                      <th style={{ width: 120 }}>评级系统</th>
-                      <th style={{ width: 120 }}>评级机构</th>
+                      <th style={{ width: 160 }}>评级机构/来源</th>
                       <th style={{ width: 150 }}>评级代码</th>
                       <th style={{ width: 140 }}>下降阈值</th>
                       <th style={{ width: 100 }}>操作</th>
@@ -1115,12 +1119,11 @@ const StageConfig: React.FC = () => {
                   <tbody>
                     {ratingRules.length === 0 && (
                       <tr>
-                        <td colSpan={5}><div className="ecl-empty-row">暂无评级下降规则</div></td>
+                        <td colSpan={4}><div className="ecl-empty-row">暂无评级下降规则</div></td>
                       </tr>
                     )}
                     {ratingRules.map((r) => (
                       <tr key={r.ruleId}>
-                        <td>{r.ratingSystem || <span className="wildcard">*</span>}</td>
                         <td>{r.ratingAgency || <span className="wildcard">*</span>}</td>
                         <td style={{ fontWeight: 500 }}>{r.currentRating}</td>
                         <td>
@@ -1275,7 +1278,9 @@ const StageConfig: React.FC = () => {
                               setEditorConditions(updated);
                             }}
                           >
+                            <option value="gt">&gt;</option>
                             <option value="gte">≥</option>
+                            <option value="lt">&lt;</option>
                             <option value="lte">≤</option>
                           </select>
                           <input
@@ -1288,6 +1293,63 @@ const StageConfig: React.FC = () => {
                               setEditorConditions(updated);
                             }}
                           />
+                          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>天</span>
+                        </>
+                      )}
+
+                      {c.type === '逾期天数范围' && (
+                        <>
+                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <input
+                              type="checkbox"
+                              checked={c.minExclusive || false}
+                              onChange={(e) => {
+                                const updated = [...editorConditions];
+                                updated[i] = { ...updated[i], minExclusive: e.target.checked };
+                                setEditorConditions(updated);
+                              }}
+                            />
+                            左开
+                          </label>
+                          <span style={{ fontSize: 12 }}>最小值:</span>
+                          <input
+                            type="number"
+                            value={c.min ?? ''}
+                            style={{ width: 65 }}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                              const updated = [...editorConditions];
+                              updated[i] = { ...updated[i], min: val };
+                              setEditorConditions(updated);
+                            }}
+                          />
+                          <span style={{ fontSize: 12 }}>~</span>
+                          <span style={{ fontSize: 12 }}>最大值:</span>
+                          <input
+                            type="number"
+                            value={c.max ?? ''}
+                            style={{ width: 65 }}
+                            placeholder="999"
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                              const updated = [...editorConditions];
+                              updated[i] = { ...updated[i], max: val };
+                              setEditorConditions(updated);
+                            }}
+                          />
+                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <input
+                              type="checkbox"
+                              checked={c.maxExclusive || false}
+                              onChange={(e) => {
+                                const updated = [...editorConditions];
+                                updated[i] = { ...updated[i], maxExclusive: e.target.checked };
+                                setEditorConditions(updated);
+                              }}
+                            />
+                            右开
+                          </label>
                           <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>天</span>
                         </>
                       )}
@@ -1450,6 +1512,12 @@ const StageConfig: React.FC = () => {
                     conditions: editorConditions.map((c) => {
                       const obj: any = { type: c.type };
                       if (c.type === '逾期天数') { obj.operator = c.operator; obj.value = parseInt(String(c.value)) || 0; }
+                      else if (c.type === '逾期天数范围') {
+                        if (c.min != null) obj.min = c.min;
+                        if (c.max != null) obj.max = c.max;
+                        obj.minExclusive = c.minExclusive || false;
+                        obj.maxExclusive = c.maxExclusive || false;
+                      }
                       else if (c.type === '五级分类') { obj.operator = c.operator; obj.values = c.values || []; }
                       else if (c.type === '违约标识') { obj.operator = 'eq'; obj.value = c.value === '是'; }
                       else { obj.operator = c.operator || 'eq'; obj.value = c.value; }

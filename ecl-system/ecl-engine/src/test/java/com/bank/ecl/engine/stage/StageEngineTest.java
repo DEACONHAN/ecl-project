@@ -112,6 +112,15 @@ class StageEngineTest {
         return r;
     }
 
+    private CrrRatingDropRuleEntity crrDropRule(String groupId,
+                                                String ratingAgency,
+                                                String currentRating,
+                                                int dropThreshold) {
+        CrrRatingDropRuleEntity r = crrDropRule(groupId, currentRating, dropThreshold);
+        r.setRatingAgency(ratingAgency);
+        return r;
+    }
+
     // ======================== Tests ========================
 
     @Test
@@ -139,6 +148,40 @@ class StageEngineTest {
 
         // 逾期 45 天 → 命中 Stage 2 规则
         AssetInput a = asset("GRP_001", Stage.STAGE_1, 45, null, null, null, null, null);
+        JobContext ctx = jobCtx(schemeId, List.of(a));
+
+        engine.execute(ctx);
+
+        assertEquals(Stage.STAGE_2, a.getStageResult().getStage());
+        assertFalse(a.getStageResult().isExceptionFlag());
+    }
+
+    @Test
+    void shouldMatchEditorFormatGreaterThanOverdueRule() {
+        String schemeId = "SCH_001";
+        String conditions = "{\"logic\":\"OR\",\"conditions\":[{\"type\":\"逾期天数\",\"operator\":\"gt\",\"value\":30}]}";
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2", conditions);
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 31, null, null, null, null, null);
+        JobContext ctx = jobCtx(schemeId, List.of(a));
+
+        engine.execute(ctx);
+
+        assertEquals(Stage.STAGE_2, a.getStageResult().getStage());
+        assertFalse(a.getStageResult().isExceptionFlag());
+    }
+
+    @Test
+    void shouldMatchEditorFormatLessThanOverdueRule() {
+        String schemeId = "SCH_001";
+        String conditions = "{\"logic\":\"OR\",\"conditions\":[{\"type\":\"逾期天数\",\"operator\":\"lt\",\"value\":30}]}";
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2", conditions);
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 29, null, null, null, null, null);
         JobContext ctx = jobCtx(schemeId, List.of(a));
 
         engine.execute(ctx);
@@ -298,9 +341,47 @@ class StageEngineTest {
         engine.execute(ctx);
 
         // CRR drop of 3 levels >= threshold of 2, but no forward rule matches.
-        // Composite key lookup (groupId|INTERNAL_CRR|INTERNAL_CRR|CRR3) must work.
+        // Composite key lookup (groupId|INTERNAL_CRR|CRR3) must work.
         assertEquals(Stage.STAGE_1, asset.getStageResult().getStage());
         assertTrue(asset.getStageResult().isExceptionFlag());
+    }
+
+    @Test
+    void shouldEvaluateCrrDropBySelectedExternalRatingAgency() {
+        CrrRatingDropRuleEntity moodyRule = crrDropRule("GRP_003",
+                "MOODY", "Baa3", 2);
+        CrrRatingDropRuleEntity spRule = crrDropRule("GRP_003",
+                "S&P", "Baa3", 5);
+        StageRuleEntity forward = forwardRule("GRP_003", 1, "STAGE_2", "{\"crr_drop\":true}");
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of(moodyRule, spRule));
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(forward));
+
+        AssetInput asset = asset("GRP_003", Stage.STAGE_1);
+        asset.setExtRatingCoThisYear("MOODY");
+        asset.setExtRatingCoLastYear("MOODY");
+        asset.setExtRatingLastYear("A1");
+        asset.setExtRatingThisYear("Baa3");
+
+        engine.execute(jobCtx("SCH_001", List.of(asset)));
+
+        assertEquals(Stage.STAGE_2, asset.getStageResult().getStage());
+        assertFalse(asset.getStageResult().isExceptionFlag());
+    }
+
+    @Test
+    void shouldEvaluateOrConditionArrays() {
+        StageRuleEntity forward = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"or\":[{\"overdue_days\":{\"min\":31}},{\"is_npl\":\"Y\"}]}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(forward));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+
+        AssetInput asset = asset("GRP_001", Stage.STAGE_1);
+        asset.setIsNpl("Y");
+
+        engine.execute(jobCtx("SCH_001", List.of(asset)));
+
+        assertEquals(Stage.STAGE_2, asset.getStageResult().getStage());
+        assertFalse(asset.getStageResult().isExceptionFlag());
     }
 
     @Test
@@ -318,5 +399,77 @@ class StageEngineTest {
         engine.execute(ctx);
 
         assertEquals(Stage.STAGE_3, a.getStageResult().getStage());
+    }
+
+    // ======================== 逾期天数范围 测试 ========================
+
+    @Test
+    void shouldMatchRangeExclusiveLeftInclusiveRight() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"logic\":\"AND\",\"conditions\":[{\"type\":\"逾期天数范围\",\"min\":30,\"minExclusive\":true,\"max\":90,\"maxExclusive\":false}]}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 45, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(a)));
+        assertEquals(Stage.STAGE_2, a.getStageResult().getStage());
+    }
+
+    @Test
+    void shouldRejectAtExclusiveLeftBoundary() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"logic\":\"AND\",\"conditions\":[{\"type\":\"逾期天数范围\",\"min\":30,\"minExclusive\":true,\"max\":90,\"maxExclusive\":false}]}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 30, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(a)));
+        assertEquals(Stage.STAGE_1, a.getStageResult().getStage());
+        assertTrue(a.getStageResult().isExceptionFlag());
+    }
+
+    @Test
+    void shouldAcceptExclusiveRightBoundaryEdge() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"logic\":\"AND\",\"conditions\":[{\"type\":\"逾期天数范围\",\"min\":30,\"minExclusive\":false,\"max\":90,\"maxExclusive\":true}]}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 89, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(a)));
+        assertEquals(Stage.STAGE_2, a.getStageResult().getStage());
+    }
+
+    @Test
+    void shouldRejectAtExclusiveRightBoundary() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"logic\":\"AND\",\"conditions\":[{\"type\":\"逾期天数范围\",\"min\":30,\"minExclusive\":false,\"max\":90,\"maxExclusive\":true}]}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 90, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(a)));
+        assertEquals(Stage.STAGE_1, a.getStageResult().getStage());
+    }
+
+    @Test
+    void shouldRejectRangeWhenMinGreaterThanMax() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"logic\":\"AND\",\"conditions\":[{\"type\":\"逾期天数范围\",\"min\":90,\"max\":30}]}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 45, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(a)));
+        assertEquals(Stage.STAGE_1, a.getStageResult().getStage());
+    }
+
+    @Test
+    void shouldNotAffectOriginalRangeWithoutExclusiveFlags() {
+        StageRuleEntity rule = forwardRule("GRP_001", 1, "STAGE_2",
+                "{\"overdue_days\":{\"min\":31,\"max\":90}}");
+        when(stageRuleMapper.selectList(any())).thenReturn(List.of(rule));
+        when(crrDropRuleMapper.selectList(any())).thenReturn(List.of());
+        AssetInput a = asset("GRP_001", Stage.STAGE_1, 31, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(a)));
+        assertEquals(Stage.STAGE_2, a.getStageResult().getStage());
+        AssetInput b = asset("GRP_001", Stage.STAGE_1, 90, null, null, null, null, null);
+        engine.execute(jobCtx("SCH_001", List.of(b)));
+        assertEquals(Stage.STAGE_2, b.getStageResult().getStage());
     }
 }
