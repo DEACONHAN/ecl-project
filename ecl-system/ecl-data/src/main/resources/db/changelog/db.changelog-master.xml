@@ -17,4 +17,5 @@
     <include file="012-engine-alignment-fields.sql" relativeToChangelogFile="true"/>
     <include file="013-fix-engine-alignment-schema.sql" relativeToChangelogFile="true"/>
     <include file="014-drop-rating-system.sql" relativeToChangelogFile="true"/>
+    <include file="015-add-job-request-payload.sql" relativeToChangelogFile="true"/>
 </databaseChangeLog>

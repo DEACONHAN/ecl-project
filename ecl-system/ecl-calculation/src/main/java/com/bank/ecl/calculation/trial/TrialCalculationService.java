@@ -3,6 +3,7 @@ package com.bank.ecl.calculation.trial;
 import com.bank.ecl.calculation.trial.dto.*;
 import com.bank.ecl.common.exception.EclException;
 import com.bank.ecl.common.exception.ErrorCode;
+import com.bank.ecl.common.util.JsonUtil;
 import com.bank.ecl.data.entity.EclJobEntity;
 import com.bank.ecl.data.entity.EclSchemeEntity;
 import com.bank.ecl.data.entity.RiskGroupEntity;
@@ -86,7 +87,8 @@ public class TrialCalculationService {
                 .collect(Collectors.toList());
 
         // Write job record
-        writeJobRecord(jobId, req.getSchemeId(), calcDate, durationMs, assets.size());
+        String requestJson = safeToJson(req);
+        writeJobRecord(jobId, req.getSchemeId(), calcDate, durationMs, assets.size(), requestJson);
 
         // Build response
         TrialCalculationResp resp = new TrialCalculationResp();
@@ -191,7 +193,8 @@ public class TrialCalculationService {
         return groupId;
     }
 
-    private void writeJobRecord(String jobId, String schemeId, LocalDate calcDate, long durationMs, int count) {
+    private void writeJobRecord(String jobId, String schemeId, LocalDate calcDate,
+                                long durationMs, int count, String requestPayload) {
         try {
             EclJobEntity job = new EclJobEntity();
             job.setJobId(jobId); job.setSchemeId(schemeId); job.setCalcDate(calcDate);
@@ -200,8 +203,17 @@ public class TrialCalculationService {
             job.setStartedAt(LocalDateTime.now().minusNanos(durationMs * 1_000_000));
             job.setFinishedAt(LocalDateTime.now()); job.setDurationMs(durationMs);
             job.setErrorSummary("{}");
+            job.setRequestPayload(requestPayload);
             eclJobMapper.insert(job);
         } catch (Exception e) { log.warn("failed to write job record", e); }
+    }
+
+    private static String safeToJson(Object obj) {
+        try {
+            return JsonUtil.toJson(obj);
+        } catch (Exception e) {
+            return "{}";
+        }
     }
 
     // === Step builders ===
