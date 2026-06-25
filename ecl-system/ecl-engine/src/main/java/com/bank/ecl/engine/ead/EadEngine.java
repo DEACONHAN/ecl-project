@@ -62,7 +62,7 @@ public class EadEngine implements EclEngine {
     private void processOnBsEad(AssetInput asset, double discountRate) {
         if (isOffBalance(asset)) {
             asset.setOnBsEad(0.0);
-            asset.setEadBreakdown("businessType=OFF_BS");
+            asset.setEadBreakdown("{\"type\":\"OFF_BS\"}");
             return;
         }
 
@@ -83,7 +83,7 @@ public class EadEngine implements EclEngine {
                 }
             }
             asset.setOnBsEad(sum);
-            asset.setEadBreakdown("futurePeriods=" + futurePeriods);
+            asset.setEadBreakdown("{\"futurePeriods\":" + futurePeriods + "}");
         } else {
             double onBsEad = toDouble(asset.getOutstandingBalance()) + toDouble(asset.getAccruedInterest());
             asset.setOnBsEad(onBsEad);

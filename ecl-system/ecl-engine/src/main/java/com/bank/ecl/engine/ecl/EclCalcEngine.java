@@ -34,8 +34,6 @@ public class EclCalcEngine implements EclEngine {
             if (c == null || c.getAssets() == null) continue;
             for (AssetInput a : c.getAssets()) {
                 if (a == null) continue;
-                // PD 异常则跳过
-                if (a.getPdException() != null) continue;
 
                 List<PdScenarioResult> scenarios = a.getPdScenarioResults();
                 if (scenarios != null && !scenarios.isEmpty()) {
