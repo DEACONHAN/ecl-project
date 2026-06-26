@@ -221,11 +221,13 @@ public class TrialCalculationService {
     private List<TrialStepVO> buildSteps(AssetInput a, StageResult sr) {
         List<TrialStepVO> steps = new ArrayList<>();
 
-        // Step 1: group
+        // ──────────── Step 1: 风险分组 ────────────
         TrialStepVO s1 = step("group", "① 风险分组",
                 a.getGroupId() != null && !"GRP_DEFAULT".equals(a.getGroupId())
                         ? "命中分组 " + a.getGroupName() : "兜底分组 GRP_DEFAULT");
         s1.setMetrics(List.of(
+                metric("分组 ID", nvl(a.getGroupId())),
+                metric("分组名称", nvl(a.getGroupName())),
                 metric("segment", nvl(a.getSegment())),
                 metric("产品类型", nvl(a.getProductType())),
                 metric("行业代码", nvl(a.getIndustryCode())),
@@ -233,19 +235,37 @@ public class TrialCalculationService {
         if (a.getGroupException() != null) s1.setNote("异常：命中兜底分组");
         steps.add(s1);
 
-        // Step 2: stage
-        TrialStepVO s2 = step("stage", "② 阶段判定",
-                sr != null ? sr.getStage().getLabel() + " (触发: " + nvl(sr.getTriggerType()) + ")" : "-");
+        // ──────────── Step 2: 阶段判定 ────────────
+        String triggerInfo = sr != null ? sr.getStage().getLabel() : "-";
+        if (sr != null && sr.getTriggerType() != null) triggerInfo += " · 触发: " + sr.getTriggerType();
+        TrialStepVO s2 = step("stage", "② 阶段判定", triggerInfo);
         s2.setMetrics(List.of(
                 metric("逾期天数", nvl(a.getOverdueDays())),
+                metric("是否不良 (is_npl)", nvl(a.getIsNpl())),
+                metric("正常连续天数", nvl(a.getNormalConsecutiveDays())),
                 metric("CRR 评级", nvl(a.getCrrRating())),
                 metric("五级分类", nvl(a.getFiveCategory())),
-                metric("违约标识", a.getDefaultFlag() != null && a.getDefaultFlag() ? "是" : "否")));
+                metric("违约标识", a.getDefaultFlag() != null && a.getDefaultFlag() ? "是" : "否"),
+                metric("其他风险信息", nvl(a.getOtherRiskInfo()))));
         if (sr != null && sr.isExceptionFlag()) s2.setNote("异常：走兜底或被回跳阻断");
         steps.add(s2);
 
-        // Step 3: PD
-        TrialStepVO s3 = step("pd", "③ PD 取值", "PD_12M = " + formatPercent(a.getPd12m()));
+        // ──────────── Step 3: PD 取值 ────────────
+        String pdType = sr != null ? switch (sr.getStage()) {
+            case STAGE_1 -> "12M PD";
+            case STAGE_2 -> "Lifetime PD";
+            case STAGE_3 -> "100%";
+        } : "12M PD";
+        TrialStepVO s3 = step("pd", "③ PD 取值",
+                pdType + " = " + formatPercent(a.getPd12m())
+                + (sr != null && sr.getStage() != Stage.STAGE_1 ? " | 存续期 = " + formatPercent(a.getPdLifetime()) : ""));
+        s3.setMetrics(List.of(
+                metric("评级体系", "INTERNAL_CRR"),
+                metric("评级机构", nvl(a.getExtRatingCoThisYear() != null ? a.getExtRatingCoThisYear() : "INTERNAL_CRR")),
+                metric("评级代码", nvl(a.getCrrFinal() != null ? a.getCrrFinal()
+                        : a.getExtRatingThisYear() != null ? a.getExtRatingThisYear() : a.getRatingCode())),
+                metric("PD 类型", pdType),
+                metric("到期日", nvl(a.getMaturityDate()))));
         if (a.getPdScenarioResults() != null && !a.getPdScenarioResults().isEmpty()) {
             List<TrialScenarioRowVO> rows = new ArrayList<>();
             for (var p : a.getPdScenarioResults()) {
@@ -271,20 +291,44 @@ public class TrialCalculationService {
         if (a.getPdException() != null) s3.setNote("异常：" + a.getPdException());
         steps.add(s3);
 
-        // Step 4: EAD
-        TrialStepVO s4 = step("ead", "④ EAD 计算", "EAD = " + formatMoney(a.getTotalEad()));
-        s4.setMetrics(List.of(
-                metric("表内 EAD", formatMoney(a.getOnBsEad())),
-                metric("表外 EAD", formatMoney(a.getOffBsEad())),
-                metric("总 EAD", formatMoney(a.getTotalEad()))));
+        // ──────────── Step 4: EAD 计算 ────────────
+        String eadMethod = (a.getRepaymentSchedules() != null && !a.getRepaymentSchedules().isEmpty())
+                ? "还款计划折现" : "余额+利息";
+        TrialStepVO s4 = step("ead", "④ EAD 计算",
+                "EAD = " + formatMoney(a.getTotalEad()) + " (" + eadMethod + ")");
+        List<TrialMetricVO> eadMetrics = new ArrayList<>();
+        eadMetrics.add(metric("授信编码", nvl(a.getFacilityCd())));
+        eadMetrics.add(metric("承诺类型", nvl(a.getCommitmentType())));
+        eadMetrics.add(metric("表内 EAD", formatMoney(a.getOnBsEad())));
+        eadMetrics.add(metric("表外 EAD", formatMoney(a.getOffBsEad())));
+        eadMetrics.add(metric("总 EAD", formatMoney(a.getTotalEad())));
+        eadMetrics.add(metric("计算方式", eadMethod));
+        s4.setMetrics(eadMetrics);
         if (a.getEadBreakdown() != null) s4.setNote(a.getEadBreakdown());
+        if (a.getEadException() != null) s4.setNote((s4.getNote() != null ? s4.getNote() + " | " : "") + "异常：" + a.getEadException());
         steps.add(s4);
 
-        // Step 5: LGD
+        // ──────────── Step 5: LGD 取值 ────────────
         TrialStepVO s5 = step("lgd", "⑤ LGD 取值", "LGD = " + formatPercent(a.getLgdValue()));
-        s5.setMetrics(List.of(
-                metric("押品池", nvl(a.getCollateralPoolId())),
-                metric("LGD", formatPercent(a.getLgdValue()))));
+        List<TrialMetricVO> lgdMetrics = new ArrayList<>();
+        lgdMetrics.add(metric("押品池", nvl(a.getCollateralPoolId())));
+        lgdMetrics.add(metric("LGD", formatPercent(a.getLgdValue())));
+
+        // Parse LGD details JSON for covered/uncovered breakdown
+        if (a.getLgdDetails() != null) {
+            try {
+                var lgdJson = JsonUtil.fromJson(a.getLgdDetails(), Map.class);
+                if (lgdJson != null) {
+                    if (lgdJson.get("eadCovered") != null)
+                        lgdMetrics.add(metric("EAD 覆盖", formatMoney(((Number) lgdJson.get("eadCovered")).doubleValue())));
+                    if (lgdJson.get("eadUncovered") != null)
+                        lgdMetrics.add(metric("EAD 未覆盖", formatMoney(((Number) lgdJson.get("eadUncovered")).doubleValue())));
+                    if (lgdJson.get("collateralNetValue") != null)
+                        lgdMetrics.add(metric("押品净值", formatMoney(((Number) lgdJson.get("collateralNetValue")).doubleValue())));
+                }
+            } catch (Exception ignored) {}
+        }
+        s5.setMetrics(lgdMetrics);
         StringBuilder lgdNote = new StringBuilder();
         if (a.getLgdException() != null) lgdNote.append("警告：使用方案默认 LGD");
         if (a.getLgdDetails() != null) {
@@ -294,7 +338,7 @@ public class TrialCalculationService {
         if (lgdNote.length() > 0) s5.setNote(lgdNote.toString());
         steps.add(s5);
 
-        // Step 6: ECL
+        // ──────────── Step 6: ECL 计算 ────────────
         TrialStepVO s6 = step("ecl", "⑥ ECL 计算", "ECL = " + formatMoney(a.getEclValue()));
         s6.setMetrics(List.of(
                 metric("PD (存续期)", formatPercent(a.getPdLifetime())),
@@ -315,12 +359,15 @@ public class TrialCalculationService {
         }
         steps.add(s6);
 
-        // Step 7: Overlay
+        // ──────────── Step 7: 管理层叠加 ────────────
         TrialStepVO s7 = step("overlay", "⑦ 管理层叠加",
                 a.getOverlayAmount() > 0 ? "+ " + formatMoney(a.getOverlayAmount()) : "无命中规则");
-        s7.setMetrics(List.of(
-                metric("叠加金额", formatMoney(a.getOverlayAmount())),
-                metric("ECL 最终", formatMoney(a.getEclFinal()))));
+        List<TrialMetricVO> overlayMetrics = new ArrayList<>();
+        overlayMetrics.add(metric("叠加金额", formatMoney(a.getOverlayAmount())));
+        overlayMetrics.add(metric("ECL 最终", formatMoney(a.getEclFinal())));
+        if (a.getSelectedOverlayId() != null)
+            overlayMetrics.add(metric("命中叠加规则 ID", a.getSelectedOverlayId().toString()));
+        s7.setMetrics(overlayMetrics);
         steps.add(s7);
 
         return steps;

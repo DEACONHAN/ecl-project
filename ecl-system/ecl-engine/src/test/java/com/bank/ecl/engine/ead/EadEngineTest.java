@@ -118,7 +118,7 @@ class EadEngineTest {
         engine.execute(ctxWithFacility(asset));
 
         assertTrue(asset.getOnBsEad() > 0);
-        assertTrue(asset.getEadBreakdown().contains("futurePeriods=1"));
+        assertTrue(asset.getEadBreakdown().contains("\"futurePeriods\":1"));
     }
 
     @Test

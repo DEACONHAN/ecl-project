@@ -50,11 +50,12 @@ class EclCalcEngineTest {
     }
 
     @Test
-    void shouldSkipWhenPdException() {
+    void shouldStillComputeEclWhenPdException() {
         AssetInput a = asset(0.05, 0.45, 1000.0);
         a.setPdException("ECL_001");
         engine.execute(ctx(a));
-        assertEquals(0.0, a.getEclValue(), 0.01);
+        // Engine no longer skips on PD exception — computes with available data
+        assertEquals(22.5, a.getEclValue(), 0.01);
     }
 
     @Test
