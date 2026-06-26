@@ -2,8 +2,6 @@ package com.bank.ecl.calculation.monitor;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.bank.ecl.calculation.monitor.dto.EclJobDetailVO;
-import com.bank.ecl.calculation.monitor.dto.EclJobLogVO;
-import com.bank.ecl.calculation.monitor.dto.EclJobStepVO;
 import com.bank.ecl.calculation.monitor.dto.EclJobVO;
 import com.bank.ecl.common.exception.EclException;
 import com.bank.ecl.common.exception.ErrorCode;
@@ -14,15 +12,12 @@ import com.bank.ecl.data.mapper.EclJobMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class EclJobMonitorService {
-
-    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
     private final EclJobMapper eclJobMapper;
     private final EclCalcDetailMapper eclCalcDetailMapper;
@@ -45,8 +40,6 @@ public class EclJobMonitorService {
                 .eq(EclCalcDetailEntity::getJobId, jobId)
                 .orderByAsc(EclCalcDetailEntity::getDetailId));
         vo.setDetails(details.stream().map(this::toDetailVO).collect(Collectors.toList()));
-        vo.setSteps(defaultSteps(job));
-        vo.setLogs(defaultLogs(job));
         return vo;
     }
 
@@ -64,6 +57,7 @@ public class EclJobMonitorService {
         vo.setFinishedAt(entity.getFinishedAt());
         vo.setDurationMs(entity.getDurationMs());
         vo.setErrorSummary(entity.getErrorSummary());
+        vo.setRequestPayload(entity.getRequestPayload());
         return vo;
     }
 
@@ -74,37 +68,27 @@ public class EclJobMonitorService {
         vo.setSchemeId(entity.getSchemeId());
         vo.setCalcDate(entity.getCalcDate());
         vo.setGroupId(entity.getGroupId());
+        vo.setGroupException(entity.getGroupException());
         vo.setStageResult(entity.getStageResult());
+        vo.setTriggerType(entity.getTriggerType());
+        vo.setStageException(entity.getStageException());
+        vo.setPdDetails(entity.getPdDetails());
+        vo.setPdException(entity.getPdException());
         vo.setEadTotal(entity.getEadTotal());
+        vo.setEadException(entity.getEadException());
+        vo.setEadBreakdown(entity.getEadBreakdown());
         vo.setLgdValue(entity.getLgdValue());
+        vo.setLgdException(entity.getLgdException());
+        vo.setLgdDetails(entity.getLgdDetails());
         vo.setEclWeighted(entity.getEclWeighted());
+        vo.setEclDetails(entity.getEclDetails());
+        vo.setEclException(entity.getEclException());
         vo.setEclOverlayTotal(entity.getEclOverlayTotal());
         vo.setEclFinal(entity.getEclFinal());
+        vo.setSelectedOverlayId(entity.getSelectedOverlayId());
         vo.setCalcStatus(entity.getCalcStatus());
         vo.setErrorSummary(entity.getErrorSummary());
         return vo;
     }
 
-    private List<EclJobStepVO> defaultSteps(EclJobEntity job) {
-        long total = job.getDurationMs() != null && job.getDurationMs() > 0 ? job.getDurationMs() : 100L;
-        return List.of(
-                new EclJobStepVO("6.1 风险分组匹配", Math.max(1, total * 18 / 100), 18),
-                new EclJobStepVO("6.2 阶段判定", Math.max(1, total * 16 / 100), 16),
-                new EclJobStepVO("6.3 PD 取值", Math.max(1, total * 22 / 100), 22),
-                new EclJobStepVO("6.4/6.5 EAD+LGD", Math.max(1, total * 20 / 100), 20),
-                new EclJobStepVO("7.3~7.6 计算层", Math.max(1, total * 16 / 100), 16),
-                new EclJobStepVO("写表+汇总", Math.max(1, total * 8 / 100), 8)
-        );
-    }
-
-    private List<EclJobLogVO> defaultLogs(EclJobEntity job) {
-        String start = job.getStartedAt() != null ? job.getStartedAt().format(TIME_FORMATTER) : "--:--:--";
-        String end = job.getFinishedAt() != null ? job.getFinishedAt().format(TIME_FORMATTER) : "--:--:--";
-        return List.of(
-                new EclJobLogVO(start, "INFO", "ECL 计算任务启动"),
-                new EclJobLogVO(start, "INFO", "加载方案参数: " + job.getSchemeId()),
-                new EclJobLogVO(start, "INFO", "风险分组、阶段、PD、EAD、LGD、ECL 计算链路执行"),
-                new EclJobLogVO(end, "INFO", "任务结束，状态: " + job.getStatus())
-        );
-    }
 }

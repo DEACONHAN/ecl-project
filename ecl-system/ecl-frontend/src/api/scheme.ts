@@ -13,6 +13,7 @@ export interface SchemeVO {
   discountRate: number;
   defaultCcf: number;
   defaultLgd: number;
+  lgdFloor: number;
   createdBy: string;
   createdAt: string;
   updatedBy?: string;

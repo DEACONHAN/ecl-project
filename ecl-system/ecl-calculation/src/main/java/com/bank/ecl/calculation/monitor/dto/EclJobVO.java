@@ -21,7 +21,7 @@ public class EclJobVO {
     private LocalDateTime finishedAt;
     private Long durationMs;
     private String errorSummary;
-    private List<EclJobStepVO> steps = new ArrayList<>();
-    private List<EclJobLogVO> logs = new ArrayList<>();
+    /** 试算请求原始 JSON（六张源表） */
+    private String requestPayload;
     private List<EclJobDetailVO> details = new ArrayList<>();
 }

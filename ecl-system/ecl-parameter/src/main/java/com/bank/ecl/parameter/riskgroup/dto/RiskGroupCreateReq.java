@@ -24,11 +24,9 @@ public class RiskGroupCreateReq {
     @Data
     public static class RiskGroupDetailReq {
         private Integer priority;
-        private String businessLine;
-        private String customerType;
+        private String segment;
         private String productType;
         private String industryCode;
-        private String regionCode;
         private String collateralType;
     }
 }

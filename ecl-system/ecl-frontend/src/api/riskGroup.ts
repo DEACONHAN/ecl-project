@@ -13,18 +13,16 @@ export interface RiskGroupVO {
 }
 
 /**
- * 匹配条件为 6 维：priority、businessLine、customerType、productType、industryCode、regionCode、collateralType
+ * 匹配条件为 4 维：priority、segment、productType、industryCode、collateralType
  * 至少填一个维度，不允许全 NULL
  */
 export interface RiskGroupDetailVO {
   detailId?: string;
   groupId?: string;
   priority: number;
-  businessLine?: string;
-  customerType?: string;
+  segment?: string;
   productType?: string;
   industryCode?: string;
-  regionCode?: string;
   collateralType?: string;
 }
 

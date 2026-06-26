@@ -18,12 +18,24 @@ export interface EclJobDetailVO {
   schemeId: string;
   calcDate: string;
   groupId?: string;
+  groupException?: string;
   stageResult?: string;
+  triggerType?: string;
+  stageException?: string;
+  pdDetails?: string;
+  pdException?: string;
   eadTotal?: number;
+  eadException?: string;
+  eadBreakdown?: string;
   lgdValue?: number;
+  lgdException?: string;
+  lgdDetails?: string;
   eclWeighted?: number;
+  eclDetails?: string;
+  eclException?: string;
   eclOverlayTotal?: number;
   eclFinal?: number;
+  selectedOverlayId?: number;
   calcStatus?: string;
   errorSummary?: string;
 }
@@ -34,15 +46,10 @@ export interface EclJobVO {
   calcDate: string;
   trialMode: boolean;
   status: string;
-  totalAssets?: number;
-  successCount?: number;
-  exceptionCount?: number;
-  startedAt?: string;
-  finishedAt?: string;
-  durationMs?: number;
   errorSummary?: string;
-  steps?: EclJobStepVO[];
-  logs?: EclJobLogVO[];
+  /** 试算请求原始 JSON（六张源表数据） */
+  requestPayload?: string;
+  /** 逐笔计算明细 */
   details?: EclJobDetailVO[];
 }
 

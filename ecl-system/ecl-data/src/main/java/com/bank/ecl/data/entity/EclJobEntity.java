@@ -35,4 +35,7 @@ public class EclJobEntity {
     private Long durationMs;
 
     private String errorSummary;
+
+    /** 试算请求的原始 JSON（输入数据快照，含六张源表数据） */
+    private String requestPayload;
 }

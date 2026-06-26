@@ -22,8 +22,8 @@ export interface CcfCurveVO {
   schemeId: string;
   productType: string;
   commitmentType: string;
-  daysMin: number;
-  daysMax: number;
+  commitmentDaysMin: number;
+  commitmentDaysMax: number;
   ccfValue: number;
   createdAt?: string;
   updatedAt?: string;

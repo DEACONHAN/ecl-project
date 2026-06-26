@@ -33,6 +33,7 @@ export interface ScenarioVO {
 export interface PdCurveVO {
   curveId?: string;
   scenarioId: string;
+  ratingAgency?: string;
   ratingCode: string;
   pdValue: number;
 }

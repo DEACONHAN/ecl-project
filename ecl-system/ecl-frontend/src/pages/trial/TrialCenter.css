@@ -158,7 +158,7 @@
 
 .trial-final-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-top: 16px;
   padding: 16px;
@@ -180,6 +180,40 @@
 
 .trial-final-value.emphasis {
   font-size: 26px;
+}
+
+/* ---- Source table compact rows ---- */
+.trial-source-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  border: 1px solid var(--color-border-light, #e8e8e8);
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-surface, #fff);
+  font-size: 12px;
+}
+
+.trial-source-row .trial-field {
+  gap: 2px;
+}
+
+.trial-source-row .trial-field label {
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.trial-source-row .trial-field input,
+.trial-source-row .trial-field .ant-input-number,
+.trial-source-row .trial-field .ant-picker,
+.trial-source-row .trial-field .ant-select {
+  font-size: 11px;
+}
+
+.trial-source-row .ant-btn-dangerous {
+  flex-shrink: 0;
 }
 
 @media (max-width: 720px) {

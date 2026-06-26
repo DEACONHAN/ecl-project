@@ -33,6 +33,7 @@ export interface RatingDowngradeRuleVO {
   ruleId?: string;
   schemeId: string;
   groupId: string;
+  ratingAgency?: string;
   currentRating: string;
   downgradeThreshold: number;
   createdAt?: string;

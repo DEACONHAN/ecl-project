@@ -30,6 +30,53 @@ import { pdApi, type ScenarioVO, type PdCurveVO } from '../../api/pd';
 import { GroupSelector, PageHeader, Panel } from '../../components';
 import { riskGroupApi, type RiskGroupVO } from '../../api/riskGroup';
 
+const RATING_AGENCY_OPTIONS = [
+  { label: '内部评级 (INTERNAL_CRR)', value: 'INTERNAL_CRR' },
+  { label: '穆迪 (MOODY)', value: 'MOODY' },
+  { label: '标普 (S&P)', value: 'S&P' },
+  { label: '惠誉 (FITCH)', value: 'FITCH' },
+];
+
+const RATING_SCALES: Record<string, string[]> = {
+  INTERNAL_CRR: [
+    'CRR1', 'CRR2', 'CRR3', 'CRR4', 'CRR5',
+    'CRR6', 'CRR7', 'CRR8', 'CRR9', 'CRR10',
+    'CRR11', 'CRR12', 'CRR13', 'CRR14',
+  ],
+  MOODY: [
+    'Aaa', 'Aa1', 'Aa2', 'Aa3',
+    'A1', 'A2', 'A3',
+    'Baa1', 'Baa2', 'Baa3',
+    'Ba1', 'Ba2', 'Ba3',
+    'B1', 'B2', 'B3',
+    'Caa1', 'Caa2', 'Caa3',
+    'Ca', 'C',
+  ],
+  'S&P': [
+    'AAA', 'AA+', 'AA', 'AA-',
+    'A+', 'A', 'A-',
+    'BBB+', 'BBB', 'BBB-',
+    'BB+', 'BB', 'BB-',
+    'B+', 'B', 'B-',
+    'CCC+', 'CCC', 'CCC-',
+    'CC', 'C', 'D',
+  ],
+  FITCH: [
+    'AAA', 'AA+', 'AA', 'AA-',
+    'A+', 'A', 'A-',
+    'BBB+', 'BBB', 'BBB-',
+    'BB+', 'BB', 'BB-',
+    'B+', 'B', 'B-',
+    'CCC', 'CC', 'C',
+    'RD', 'D',
+  ],
+};
+
+function getRatingOptions(agency: string | undefined): { label: string; value: string }[] {
+  const list = RATING_SCALES[agency || 'INTERNAL_CRR'] || RATING_SCALES.INTERNAL_CRR;
+  return list.map((r) => ({ label: r, value: r }));
+}
+
 const PdConfig: React.FC = () => {
   const [searchParams] = useSearchParams();
   const schemeIdFromUrl = searchParams.get('schemeId') || '';
@@ -58,6 +105,7 @@ const PdConfig: React.FC = () => {
   const [curveModalOpen, setCurveModalOpen] = useState(false);
   const [editingCurve, setEditingCurve] = useState<PdCurveVO | null>(null);
   const [curveForm] = Form.useForm();
+  const [curveFormAgency, setCurveFormAgency] = useState('INTERNAL_CRR');
 
   // ─── 矩阵视图 ───
   const [matrixModalOpen, setMatrixModalOpen] = useState(false);
@@ -196,7 +244,7 @@ const PdConfig: React.FC = () => {
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
       );
       message.success('曲线更新成功');
     } else {
@@ -205,12 +253,13 @@ const PdConfig: React.FC = () => {
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
       );
       message.success('曲线新增成功');
     }
     setCurveModalOpen(false);
     setEditingCurve(null);
+    setCurveFormAgency('INTERNAL_CRR');
     curveForm.resetFields();
     if (selectedScenarioId) loadCurves(selectedScenarioId);
   };
@@ -229,7 +278,7 @@ const PdConfig: React.FC = () => {
           selectedSchemeId,
           selectedGroupId,
           selectedScenarioId,
-          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
         );
         message.success('已删除');
         loadCurves(selectedScenarioId);
@@ -248,7 +297,7 @@ const PdConfig: React.FC = () => {
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        curves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        curves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
       );
       message.success('批量保存成功');
     } catch {
@@ -306,6 +355,7 @@ const PdConfig: React.FC = () => {
             onClick={() => {
               setEditingCurve(record);
               curveForm.setFieldsValue(record);
+              setCurveFormAgency(record.ratingAgency || 'INTERNAL_CRR');
               setCurveModalOpen(true);
             }}
           />
@@ -559,6 +609,7 @@ const PdConfig: React.FC = () => {
                 onClick={() => {
                   setEditingCurve(null);
                   curveForm.resetFields();
+                  setCurveFormAgency('INTERNAL_CRR');
                   setCurveModalOpen(true);
                 }}
               >
@@ -571,6 +622,7 @@ const PdConfig: React.FC = () => {
           <table className="ecl-table">
             <thead>
               <tr>
+                <th>评级机构/来源</th>
                 <th>评级代码</th>
                 <th>PD 值</th>
                 <th style={{ width: 160 }}>操作</th>
@@ -579,12 +631,13 @@ const PdConfig: React.FC = () => {
             <tbody>
               {curves.map((c) => (
                 <tr key={c.curveId}>
+                  <td>{c.ratingAgency || <span className="wildcard">*</span>}</td>
                   <td>{c.ratingCode}</td>
                   <td>{(c.pdValue * 100).toFixed(4)}%</td>
                   <td>
                     <Space>
                       <Button type="link" size="small" icon={<EditOutlined />}
-                        onClick={() => { setEditingCurve(c); curveForm.setFieldsValue(c); setCurveModalOpen(true); }} />
+                        onClick={() => { setEditingCurve(c); curveForm.setFieldsValue(c); setCurveFormAgency(c.ratingAgency || 'INTERNAL_CRR'); setCurveModalOpen(true); }} />
                       <Button type="link" size="small" danger icon={<DeleteOutlined />}
                         onClick={() => handleDeleteCurve(c)} />
                     </Space>
@@ -592,7 +645,7 @@ const PdConfig: React.FC = () => {
                 </tr>
               ))}
               {curves.length === 0 && (
-                <tr><td colSpan={3}><div className="ecl-empty-row">暂无曲线数据</div></td></tr>
+                <tr><td colSpan={5}><div className="ecl-empty-row">暂无曲线数据</div></td></tr>
               )}
             </tbody>
           </table>
@@ -659,16 +712,34 @@ const PdConfig: React.FC = () => {
         onOk={handleSaveCurve}
         onCancel={() => {
           setCurveModalOpen(false);
+          setCurveFormAgency('INTERNAL_CRR');
           curveForm.resetFields();
         }}
       >
         <Form form={curveForm} layout="vertical">
           <Form.Item
+            name="ratingAgency"
+            label="评级机构/来源"
+          >
+            <Select
+              placeholder="选择评级机构"
+              options={RATING_AGENCY_OPTIONS}
+              onChange={(val) => {
+                setCurveFormAgency(val);
+                curveForm.setFieldValue('ratingCode', undefined);
+              }}
+            />
+          </Form.Item>
+          <Form.Item
             name="ratingCode"
             label="评级代码"
-            rules={[{ required: true, message: '请输入评级代码' }]}
+            rules={[{ required: true, message: '请选择评级代码' }]}
           >
-            <Input placeholder="如：AAA, AA+, A" />
+            <Select
+              placeholder="选择评级"
+              options={getRatingOptions(curveFormAgency)}
+              showSearch
+            />
           </Form.Item>
           <Form.Item
             name="pdValue"
