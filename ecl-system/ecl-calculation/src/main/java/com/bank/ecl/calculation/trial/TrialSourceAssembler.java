@@ -150,7 +150,6 @@ public class TrialSourceAssembler {
         asset.setCustomerNo(loan.getCustomerNo());
         asset.setCustomerId(loan.getCustomerNo());
         asset.setCustomerName(loan.getCustomerName());
-        asset.setBusinessLine(loan.getSegment());
         asset.setSegment(loan.getSegment());
         asset.setProductType(loan.getProductType());
         asset.setIndustryCode(loan.getIndustryCn());

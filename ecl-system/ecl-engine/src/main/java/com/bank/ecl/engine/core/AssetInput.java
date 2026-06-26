@@ -32,10 +32,7 @@ public class AssetInput {
     /** 客户名称 */
     private String customerName;
 
-    /** 业务条线 */
-    private String businessLine;
-
-    /** 客户分层 */
+    /** 业务板块 / 风险分类 */
     private String segment;
 
     /** 客户类型 */

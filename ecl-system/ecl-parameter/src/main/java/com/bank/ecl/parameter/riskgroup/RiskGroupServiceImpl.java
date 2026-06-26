@@ -53,7 +53,7 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         // 校验 4 维字段不全为空
         for (int i = 0; i < details.size(); i++) {
             RiskGroupDetailReq d = details.get(i);
-            if (d.getBusinessLine() == null && d.getProductType() == null
+            if (d.getSegment() == null && d.getProductType() == null
                     && d.getIndustryCode() == null && d.getCollateralType() == null) {
                 throw new EclException(ErrorCode.ECL_006, "明细第 " + (i + 1) + " 行：4 维字段不可全为空，至少填写一个维度");
             }
@@ -273,7 +273,7 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         RiskGroupDetailVO vo = new RiskGroupDetailVO();
         vo.setDetailId(entity.getDetailId());
         vo.setPriority(entity.getPriority());
-        vo.setBusinessLine(entity.getBusinessLine());
+        vo.setSegment(entity.getSegment());
         vo.setProductType(entity.getProductType());
         vo.setIndustryCode(entity.getIndustryCode());
         vo.setCollateralType(entity.getCollateralType());
@@ -285,7 +285,7 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         entity.setSchemeId(schemeId);
         entity.setGroupId(groupId);
         entity.setPriority(req.getPriority());
-        entity.setBusinessLine(req.getBusinessLine());
+        entity.setSegment(req.getSegment());
         entity.setProductType(req.getProductType());
         entity.setIndustryCode(req.getIndustryCode());
         entity.setCollateralType(req.getCollateralType());

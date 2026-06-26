@@ -8,7 +8,7 @@ import java.time.LocalDate;
 public class AssetInputReq {
     private String assetId;
     // 6.1
-    private String businessLine;
+    private String segment;
     private String customerType;
     private String productType;
     private String industryCode;
@@ -35,7 +35,7 @@ public class AssetInputReq {
     public static AssetInputReq from(TrialCalculationReq req) {
         AssetInputReq r = new AssetInputReq();
         r.setAssetId(req.getAssetId());
-        r.setBusinessLine(req.getBusinessLine());
+        r.setSegment(req.getSegment());
         r.setCustomerType(req.getCustomerType());
         r.setProductType(req.getProductType());
         r.setIndustryCode(req.getIndustryCode());

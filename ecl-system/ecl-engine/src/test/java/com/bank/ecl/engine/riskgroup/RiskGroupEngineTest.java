@@ -39,13 +39,13 @@ class RiskGroupEngineTest {
 
     // ---- helpers ----
 
-    private AssetInput asset(String businessLine, String customerType,
+    private AssetInput asset(String segment, String customerType,
                              String productType, String industryCode,
                              String regionCode, String collateralType) {
         AssetInput a = new AssetInput();
         a.setAssetId("AST_001");
         a.setCustomerId("CUST_001");
-        a.setBusinessLine(businessLine);
+        a.setSegment(segment);
         a.setCustomerType(customerType);
         a.setProductType(productType);
         a.setIndustryCode(industryCode);
@@ -64,12 +64,12 @@ class RiskGroupEngineTest {
         return ctx;
     }
 
-    private AssetInput asset(String businessLine, String productType,
+    private AssetInput asset(String segment, String productType,
                              String industryCode, String collateralType) {
         AssetInput a = new AssetInput();
         a.setAssetId("AST_001");
         a.setCustomerId("CUST_001");
-        a.setBusinessLine(businessLine);
+        a.setSegment(segment);
         a.setProductType(productType);
         a.setIndustryCode(industryCode);
         a.setCollateralType(collateralType);
@@ -77,22 +77,22 @@ class RiskGroupEngineTest {
     }
 
     private RiskGroupDetailEntity detail(String groupId, int priority,
-                                         String businessLine, String productType) {
+                                         String segment, String productType) {
         RiskGroupDetailEntity d = new RiskGroupDetailEntity();
         d.setGroupId(groupId);
         d.setPriority(priority);
-        d.setBusinessLine(businessLine);
+        d.setSegment(segment);
         d.setProductType(productType);
         return d;
     }
 
     private RiskGroupDetailEntity detail(String groupId, int priority,
-                                         String businessLine, String productType,
+                                         String segment, String productType,
                                          String industryCode, String collateralType) {
         RiskGroupDetailEntity d = new RiskGroupDetailEntity();
         d.setGroupId(groupId);
         d.setPriority(priority);
-        d.setBusinessLine(businessLine);
+        d.setSegment(segment);
         d.setProductType(productType);
         d.setIndustryCode(industryCode);
         d.setCollateralType(collateralType);

@@ -125,7 +125,7 @@ public class RiskGroupEngine implements EclEngine {
      */
     private String matchGroup(AssetInput asset, List<RiskGroupDetailEntity> rules) {
         for (RiskGroupDetailEntity rule : rules) {
-            if (matchDimension(asset.getBusinessLine(), rule.getBusinessLine())
+            if (matchDimension(asset.getSegment(), rule.getSegment())
                     && matchDimension(asset.getProductType(), rule.getProductType())
                     && matchDimension(asset.getIndustryCode(), rule.getIndustryCode())
                     && matchDimension(asset.getCollateralType(), rule.getCollateralType())) {

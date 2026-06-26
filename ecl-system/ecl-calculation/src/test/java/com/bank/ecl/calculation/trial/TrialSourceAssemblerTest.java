@@ -115,7 +115,6 @@ class TrialSourceAssemblerTest {
 
         AssetInput actualAsset = ctx.getCustomers().get(0).getAssets().get(0);
         assertEquals("LN_001", actualAsset.getAssetId());
-        assertEquals("2 Loan", actualAsset.getBusinessLine());
         assertEquals("2 Loan", actualAsset.getSegment());
         assertEquals("公司贷款", actualAsset.getProductType());
         assertEquals("制造业", actualAsset.getIndustryCode());
@@ -140,7 +139,7 @@ class TrialSourceAssemblerTest {
     void shouldExposeExpandedEngineContextFieldsForTrialSourceMapping() {
         AssetInput asset = new AssetInput();
         asset.setAssetId("LN_001");
-        asset.setBusinessLine("2 Loan");
+        asset.setSegment("2 Loan");
         asset.setIndustryCode("制造业");
         asset.setCollateralType("房产抵押");
         asset.setIsNpl("N");
@@ -167,7 +166,7 @@ class TrialSourceAssemblerTest {
 
         AssetInput actualAsset = ctx.getCustomers().get(0).getAssets().get(0);
         assertEquals("LN_001", actualAsset.getAssetId());
-        assertEquals("2 Loan", actualAsset.getBusinessLine());
+        assertEquals("2 Loan", actualAsset.getSegment());
         assertEquals("制造业", actualAsset.getIndustryCode());
         assertEquals("房产抵押", actualAsset.getCollateralType());
         assertEquals("N", actualAsset.getIsNpl());

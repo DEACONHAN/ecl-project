@@ -122,7 +122,7 @@ public class TrialCalculationService {
     private AssetInput buildAssetFromReq(AssetInputReq req, LocalDate calcDate) {
         AssetInput a = new AssetInput();
         a.setAssetId(req.getAssetId());
-        a.setBusinessLine(req.getBusinessLine());
+        a.setSegment(req.getSegment());
         a.setCustomerType(req.getCustomerType());
         a.setProductType(req.getProductType());
         a.setIndustryCode(req.getIndustryCode());
@@ -226,7 +226,7 @@ public class TrialCalculationService {
                 a.getGroupId() != null && !"GRP_DEFAULT".equals(a.getGroupId())
                         ? "命中分组 " + a.getGroupName() : "兜底分组 GRP_DEFAULT");
         s1.setMetrics(List.of(
-                metric("业务条线", nvl(a.getBusinessLine())),
+                metric("segment", nvl(a.getSegment())),
                 metric("产品类型", nvl(a.getProductType())),
                 metric("行业代码", nvl(a.getIndustryCode())),
                 metric("担保类型", nvl(a.getCollateralType()))));

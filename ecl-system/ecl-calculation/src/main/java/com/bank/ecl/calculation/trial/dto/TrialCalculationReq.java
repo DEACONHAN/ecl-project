@@ -28,7 +28,7 @@ public class TrialCalculationReq {
     private List<TrialHistoricalStageRowReq> historicalStages = new ArrayList<>();
 
     // === 6.1 风险分组入参 ===
-    private String businessLine;
+    private String segment;
     private String customerType;
     private String productType;
     private String industryCode;

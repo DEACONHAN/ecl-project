@@ -18,7 +18,7 @@ public class RiskGroupDetailEntity {
 
     private Integer priority;
 
-    private String businessLine;
+    private String segment;
 
     private String productType;
 

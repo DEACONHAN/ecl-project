@@ -26,6 +26,7 @@ const REVOLVING_OPTIONS = ['Y', 'N'];
 // Helpers: default row factories (called during render / preset)
 // ---------------------------------------------------------------------------
 const makeDefaultLoan = (): TrialLoanRowReq => ({
+  reportDt: today.format('YYYY-MM-DD'),
   id: `LN_${String(Date.now()).slice(-6)}`,
   facilityCd: `FAC_${String(Date.now()).slice(-6)}`,
   customerNo: 'CUST_001',
@@ -41,6 +42,7 @@ const makeDefaultLoan = (): TrialLoanRowReq => ({
   loanStartDt: today.format('YYYY-MM-DD'),
   loanMaturityDt: today.add(2, 'year').format('YYYY-MM-DD'),
   overdueDays: 0,
+  loanClassifCd: '正常',
   isNpl: 'N',
   guaranteeType: '信用',
   normalConsecutiveDays: 180,
@@ -289,37 +291,53 @@ const TrialCenter: React.FC = () => {
         {rows.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>暂无数据，请添加借据</span>}
         {rows.map((r, idx) => (
           <div key={idx} className="trial-source-row">
-            <div className="trial-field"><label>ID</label>
+            <div className="trial-field"><label>report_dt</label>
+              <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.reportDt ? dayjs(r.reportDt) : undefined} onChange={(v) => updateLoan(idx, { reportDt: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
+            <div className="trial-field"><label>id</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.id} onChange={(e) => updateLoan(idx, { id: e.target.value })} /></div>
-            <div className="trial-field"><label>客户号</label>
+            <div className="trial-field"><label>customer_no</label>
               <Input style={{ width: 100, fontSize: 11 }} size="small" value={r.customerNo} onChange={(e) => updateLoan(idx, { customerNo: e.target.value })} /></div>
-            <div className="trial-field"><label>客户名称</label>
+            <div className="trial-field"><label>customer_name</label>
               <Input style={{ width: 120, fontSize: 11 }} size="small" value={r.customerName} onChange={(e) => updateLoan(idx, { customerName: e.target.value })} /></div>
-            <div className="trial-field"><label>行业</label>
+            <div className="trial-field"><label>industry_cn</label>
               {textField(r.industryCn, (v) => updateLoan(idx, { industryCn: v }))}</div>
-            <div className="trial-field"><label>规模</label>
+            <div className="trial-field"><label>segment</label>
               {textField(r.segment, (v) => updateLoan(idx, { segment: v }))}</div>
-            <div className="trial-field"><label>产品类型</label>
+            <div className="trial-field"><label>product_type</label>
               {textField(r.productType, (v) => updateLoan(idx, { productType: v }))}</div>
-            <div className="trial-field"><label>融资金额</label>
+            <div className="trial-field"><label>currency_cd</label>
+              <Input style={{ width: 80, fontSize: 11 }} size="small" value={r.currencyCd} onChange={(e) => updateLoan(idx, { currencyCd: e.target.value })} /></div>
+            <div className="trial-field"><label>amt_financed_cny</label>
               <InputNumber style={{ width: 120, fontSize: 11 }} size="small" value={r.amtFinancedCny} onChange={(v) => updateLoan(idx, { amtFinancedCny: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>贷款余额</label>
+            <div className="trial-field"><label>loan_bal_cny</label>
               <InputNumber style={{ width: 120, fontSize: 11 }} size="small" value={r.loanBalCny} onChange={(v) => updateLoan(idx, { loanBalCny: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>应计利息</label>
+            <div className="trial-field"><label>int_accrued_cny</label>
               <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.intAccruedCny} onChange={(v) => updateLoan(idx, { intAccruedCny: v ?? undefined })} min={0} /></div>
-            <div className="trial-field"><label>利率(%)</label>
+            <div className="trial-field"><label>interest_rate</label>
               <InputNumber style={{ width: 80, fontSize: 11 }} size="small" value={r.interestRate} onChange={(v) => updateLoan(idx, { interestRate: v ?? undefined })} min={0} step={0.1} precision={2} /></div>
-            <div className="trial-field"><label>起贷日</label>
+            <div className="trial-field"><label>loan_start_dt</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.loanStartDt ? dayjs(r.loanStartDt) : undefined} onChange={(v) => updateLoan(idx, { loanStartDt: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
-            <div className="trial-field"><label>到期日</label>
+            <div className="trial-field"><label>loan_maturity_dt</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.loanMaturityDt ? dayjs(r.loanMaturityDt) : undefined} onChange={(v) => updateLoan(idx, { loanMaturityDt: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
-            <div className="trial-field"><label>逾期天数</label>
+            <div className="trial-field"><label>overdue_days</label>
               <InputNumber style={{ width: 80, fontSize: 11 }} size="small" value={r.overdueDays} onChange={(v) => updateLoan(idx, { overdueDays: v ?? undefined })} min={0} /></div>
-            <div className="trial-field"><label>担保类型</label>
+            <div className="trial-field"><label>loan_classif_cd</label>
+              {textField(r.loanClassifCd, (v) => updateLoan(idx, { loanClassifCd: v }))}</div>
+            <div className="trial-field"><label>is_npl</label>
+              <Input style={{ width: 70, fontSize: 11 }} size="small" value={r.isNpl} onChange={(e) => updateLoan(idx, { isNpl: e.target.value })} /></div>
+            <div className="trial-field"><label>guarantee_type</label>
               {textField(r.guaranteeType, (v) => updateLoan(idx, { guaranteeType: v }))}</div>
-            <div className="trial-field"><label>业务类型</label>
+            <div className="trial-field"><label>normal_consecutive_days</label>
+              <InputNumber style={{ width: 90, fontSize: 11 }} size="small" value={r.normalConsecutiveDays} onChange={(v) => updateLoan(idx, { normalConsecutiveDays: v ?? undefined })} min={0} /></div>
+            <div className="trial-field"><label>other_risk_info</label>
+              <Input style={{ width: 120, fontSize: 11 }} size="small" value={r.otherRiskInfo} onChange={(e) => updateLoan(idx, { otherRiskInfo: e.target.value })} /></div>
+            <div className="trial-field"><label>business_type</label>
               {textField(r.businessType, (v) => updateLoan(idx, { businessType: v }))}</div>
-            <div className="trial-field"><label>授信编码</label>
+            <div className="trial-field"><label>overdue_principal</label>
+              <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.overduePrincipal} onChange={(v) => updateLoan(idx, { overduePrincipal: v ?? undefined })} min={0} /></div>
+            <div className="trial-field"><label>overdue_interest</label>
+              <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.overdueInterest} onChange={(v) => updateLoan(idx, { overdueInterest: v ?? undefined })} min={0} /></div>
+            <div className="trial-field"><label>facility_cd</label>
               <Input style={{ width: 100, fontSize: 11 }} size="small" value={r.facilityCd} onChange={(e) => updateLoan(idx, { facilityCd: e.target.value })} /></div>
             {rows.length > 1 && (
               <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeLoan(idx)} style={{ alignSelf: 'center' }} />
@@ -340,25 +358,25 @@ const TrialCenter: React.FC = () => {
         {rows.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>暂无数据，请添加授信额度</span>}
         {rows.map((r, idx) => (
           <div key={idx} className="trial-source-row">
-            <div className="trial-field"><label>授信编号</label>
+            <div className="trial-field"><label>facility_cd</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.facilityCd} onChange={(e) => updateFacility(idx, { facilityCd: e.target.value })} /></div>
-            <div className="trial-field"><label>客户号</label>
+            <div className="trial-field"><label>cif_no</label>
               <Input style={{ width: 100, fontSize: 11 }} size="small" value={r.cifNo} onChange={(e) => updateFacility(idx, { cifNo: e.target.value })} /></div>
-            <div className="trial-field"><label>额度币种</label>
+            <div className="trial-field"><label>limit_currency_cd</label>
               <Input style={{ width: 80, fontSize: 11 }} size="small" value={r.limitCurrencyCd} onChange={(e) => updateFacility(idx, { limitCurrencyCd: e.target.value })} /></div>
-            <div className="trial-field"><label>授信总额</label>
+            <div className="trial-field"><label>limit_amt_cny</label>
               <InputNumber style={{ width: 120, fontSize: 11 }} size="small" value={r.limitAmtCny} onChange={(v) => updateFacility(idx, { limitAmtCny: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>已用额度</label>
+            <div className="trial-field"><label>used_limit</label>
               <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.usedLimit} onChange={(v) => updateFacility(idx, { usedLimit: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>未提款</label>
+            <div className="trial-field"><label>undrawn_amt_cny</label>
               <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.undrawnAmtCny} onChange={(v) => updateFacility(idx, { undrawnAmtCny: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>循环标志</label>
+            <div className="trial-field"><label>is_revolving</label>
               {textField(r.isRevolving, (v) => updateFacility(idx, { isRevolving: v }))}</div>
-            <div className="trial-field"><label>起始日</label>
+            <div className="trial-field"><label>facility_start_date</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.facilityStartDate ? dayjs(r.facilityStartDate) : undefined} onChange={(v) => updateFacility(idx, { facilityStartDate: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
-            <div className="trial-field"><label>到期日</label>
+            <div className="trial-field"><label>facility_maturity_date</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.facilityMaturityDate ? dayjs(r.facilityMaturityDate) : undefined} onChange={(v) => updateFacility(idx, { facilityMaturityDate: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
-            <div className="trial-field"><label>押品池</label>
+            <div className="trial-field"><label>collateral_pool_id</label>
               <Input style={{ width: 100, fontSize: 11 }} size="small" value={r.collateralPoolId} onChange={(e) => updateFacility(idx, { collateralPoolId: e.target.value })} /></div>
             {rows.length > 1 && (
               <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeFacility(idx)} style={{ alignSelf: 'center' }} />
@@ -379,17 +397,17 @@ const TrialCenter: React.FC = () => {
         {rows.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>暂无还款计划数据</span>}
         {rows.map((r, idx) => (
           <div key={idx} className="trial-source-row">
-            <div className="trial-field"><label>借据编号</label>
+            <div className="trial-field"><label>loan_receipt_no</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.loanReceiptNo} onChange={(e) => updateRepayment(idx, { loanReceiptNo: e.target.value })} /></div>
-            <div className="trial-field"><label>总期数</label>
+            <div className="trial-field"><label>total_periods</label>
               <InputNumber style={{ width: 80, fontSize: 11 }} size="small" value={r.totalPeriods} onChange={(v) => updateRepayment(idx, { totalPeriods: v ?? undefined })} min={1} /></div>
-            <div className="trial-field"><label>当前期数</label>
+            <div className="trial-field"><label>period_no</label>
               <InputNumber style={{ width: 80, fontSize: 11 }} size="small" value={r.periodNo} onChange={(v) => updateRepayment(idx, { periodNo: v ?? undefined })} min={1} /></div>
-            <div className="trial-field"><label>到期日</label>
+            <div className="trial-field"><label>due_date</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.dueDate ? dayjs(r.dueDate) : undefined} onChange={(v) => updateRepayment(idx, { dueDate: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
-            <div className="trial-field"><label>应还本金</label>
+            <div className="trial-field"><label>due_principal</label>
               <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.duePrincipal} onChange={(v) => updateRepayment(idx, { duePrincipal: v ?? undefined })} min={0} /></div>
-            <div className="trial-field"><label>应还利息</label>
+            <div className="trial-field"><label>due_interest</label>
               <InputNumber style={{ width: 110, fontSize: 11 }} size="small" value={r.dueInterest} onChange={(v) => updateRepayment(idx, { dueInterest: v ?? undefined })} min={0} /></div>
             <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeRepayment(idx)} style={{ alignSelf: 'center' }} />
           </div>
@@ -408,25 +426,25 @@ const TrialCenter: React.FC = () => {
         {rows.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>暂无抵质押品数据</span>}
         {rows.map((r, idx) => (
           <div key={idx} className="trial-source-row">
-            <div className="trial-field"><label>押品编号</label>
+            <div className="trial-field"><label>collateral_code</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.collateralCode} onChange={(e) => updateCollateral(idx, { collateralCode: e.target.value })} /></div>
-            <div className="trial-field"><label>押品池编码</label>
+            <div className="trial-field"><label>collateral_pool_code</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.collateralPoolCode} onChange={(e) => updateCollateral(idx, { collateralPoolCode: e.target.value })} /></div>
-            <div className="trial-field"><label>客户号</label>
+            <div className="trial-field"><label>cif_no</label>
               <Input style={{ width: 100, fontSize: 11 }} size="small" value={r.cifNo} onChange={(e) => updateCollateral(idx, { cifNo: e.target.value })} /></div>
-            <div className="trial-field"><label>授信编号</label>
+            <div className="trial-field"><label>facility_unique_code</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.facilityUniqueCode} onChange={(e) => updateCollateral(idx, { facilityUniqueCode: e.target.value })} /></div>
-            <div className="trial-field"><label>押品分类</label>
+            <div className="trial-field"><label>collateral_category</label>
               {textField(r.collateralCategory, (v) => updateCollateral(idx, { collateralCategory: v }))}</div>
-            <div className="trial-field"><label>押品类型</label>
+            <div className="trial-field"><label>collateral_type</label>
               {textField(r.collateralType, (v) => updateCollateral(idx, { collateralType: v }))}</div>
-            <div className="trial-field"><label>押品价值</label>
+            <div className="trial-field"><label>collateral_value</label>
               <InputNumber style={{ width: 120, fontSize: 11 }} size="small" value={r.collateralValue} onChange={(v) => updateCollateral(idx, { collateralValue: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>评估价值</label>
+            <div className="trial-field"><label>appraisal_value</label>
               <InputNumber style={{ width: 120, fontSize: 11 }} size="small" value={r.appraisalValue} onChange={(v) => updateCollateral(idx, { appraisalValue: v ?? undefined })} min={0} step={10000} /></div>
-            <div className="trial-field"><label>评估生效日</label>
+            <div className="trial-field"><label>appraisal_effective_date</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.appraisalEffectiveDate ? dayjs(r.appraisalEffectiveDate) : undefined} onChange={(v) => updateCollateral(idx, { appraisalEffectiveDate: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
-            <div className="trial-field"><label>担保方式</label>
+            <div className="trial-field"><label>guarantee_method</label>
               <Input style={{ width: 90, fontSize: 11 }} size="small" value={r.guaranteeMethod} onChange={(e) => updateCollateral(idx, { guaranteeMethod: e.target.value })} /></div>
             {rows.length > 1 && (
               <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeCollateral(idx)} style={{ alignSelf: 'center' }} />
@@ -447,23 +465,23 @@ const TrialCenter: React.FC = () => {
         {rows.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>暂无评级数据</span>}
         {rows.map((r, idx) => (
           <div key={idx} className="trial-source-row">
-            <div className="trial-field"><label>客户号</label>
+            <div className="trial-field"><label>cif_no</label>
               <Input style={{ width: 100, fontSize: 11 }} size="small" value={r.cifNo} onChange={(e) => updateRating(idx, { cifNo: e.target.value })} /></div>
-            <div className="trial-field"><label>客户名称</label>
+            <div className="trial-field"><label>customer_name</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.customerName} onChange={(e) => updateRating(idx, { customerName: e.target.value })} /></div>
-            <div className="trial-field"><label>上年内部</label>
+            <div className="trial-field"><label>crr_int_last_year</label>
               {textField(r.crrIntLastYear, (v) => updateRating(idx, { crrIntLastYear: v }))}</div>
-            <div className="trial-field"><label>本年内部</label>
+            <div className="trial-field"><label>crr_int_this_year</label>
               {textField(r.crrIntThisYear, (v) => updateRating(idx, { crrIntThisYear: v }))}</div>
-            <div className="trial-field"><label>最终评级</label>
+            <div className="trial-field"><label>crr_final</label>
               {textField(r.crrFinal, (v) => updateRating(idx, { crrFinal: v }))}</div>
-            <div className="trial-field"><label>上年外评机构</label>
+            <div className="trial-field"><label>ext_rating_co_last_year</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.extRatingCoLastYear} onChange={(e) => updateRating(idx, { extRatingCoLastYear: e.target.value })} /></div>
-            <div className="trial-field"><label>上年外评</label>
+            <div className="trial-field"><label>ext_rating_last_year</label>
               {textField(r.extRatingLastYear, (v) => updateRating(idx, { extRatingLastYear: v }))}</div>
-            <div className="trial-field"><label>本年外评机构</label>
+            <div className="trial-field"><label>ext_rating_co_this_year</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.extRatingCoThisYear} onChange={(e) => updateRating(idx, { extRatingCoThisYear: e.target.value })} /></div>
-            <div className="trial-field"><label>本年外评</label>
+            <div className="trial-field"><label>ext_rating_this_year</label>
               {textField(r.extRatingThisYear, (v) => updateRating(idx, { extRatingThisYear: v }))}</div>
             {rows.length > 1 && (
               <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeRating(idx)} style={{ alignSelf: 'center' }} />
@@ -484,11 +502,11 @@ const TrialCenter: React.FC = () => {
         {rows.length === 0 && <span style={{ color: '#999', fontSize: 12 }}>暂无历史阶段数据</span>}
         {rows.map((r, idx) => (
           <div key={idx} className="trial-source-row">
-            <div className="trial-field"><label>借据ID</label>
+            <div className="trial-field"><label>asset_id</label>
               <Input style={{ width: 110, fontSize: 11 }} size="small" value={r.assetId} onChange={(e) => updateHistoricalStage(idx, { assetId: e.target.value })} /></div>
-            <div className="trial-field"><label>阶段</label>
+            <div className="trial-field"><label>stage_result</label>
               {textField(r.stageResult, (v) => updateHistoricalStage(idx, { stageResult: v }))}</div>
-            <div className="trial-field"><label>跑批日期</label>
+            <div className="trial-field"><label>calc_date</label>
               <DatePicker size="small" style={{ width: 120, fontSize: 11 }} value={r.calcDate ? dayjs(r.calcDate) : undefined} onChange={(v) => updateHistoricalStage(idx, { calcDate: v ? v.format('YYYY-MM-DD') : undefined })} /></div>
             <Button size="small" danger icon={<DeleteOutlined />} onClick={() => removeHistoricalStage(idx)} style={{ alignSelf: 'center' }} />
           </div>
@@ -530,16 +548,16 @@ const TrialCenter: React.FC = () => {
       <Panel title="试算条件" extra={<Tag color="blue">试算数据 · 不写入正式跑批</Tag>}>
         <div className="trial-form-row">
           <div className="trial-field">
-            <label>选择方案</label>
+            <label>scheme_id</label>
             <Select style={{ width: 280 }} placeholder="请选择" value={selectedSchemeId || undefined}
               onChange={setSelectedSchemeId} options={schemeOptions} />
           </div>
           <div className="trial-field">
-            <label>试算日期</label>
+            <label>calc_date</label>
             <DatePicker value={calcDate} onChange={(v) => v && setCalcDate(v)} />
           </div>
           <div className="trial-field">
-            <label>范围</label>
+            <label>scope</label>
             <Radio.Group value={scope} onChange={(e) => setScope(e.target.value)}>
               <Radio value="SINGLE">单笔/多笔</Radio>
               <Radio value="BATCH" disabled>批量</Radio>

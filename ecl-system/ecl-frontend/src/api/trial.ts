@@ -16,6 +16,7 @@ export interface TrialScenarioRowVO {
 
 // 6.1a 借据信息表行
 export interface TrialLoanRowReq {
+  reportDt?: string;
   id: string;
   facilityCd?: string;
   customerNo?: string;
@@ -31,6 +32,7 @@ export interface TrialLoanRowReq {
   loanStartDt?: string;
   loanMaturityDt?: string;
   overdueDays?: number;
+  loanClassifCd?: string;
   isNpl?: string;
   guaranteeType?: string;
   normalConsecutiveDays?: number;
@@ -121,7 +123,7 @@ export interface TrialHistoricalStageRowReq {
 
 export interface AssetInputReq {
   assetId: string;
-  businessLine?: string;
+  segment?: string;
   customerType?: string;
   productType?: string;
   industryCode?: string;
@@ -201,7 +203,7 @@ export interface TrialCalculationReq {
   scope: 'SINGLE' | 'BATCH';
 
   // 6.1 风险分组入参
-  businessLine?: string;
+  segment?: string;
   customerType?: string;
   productType?: string;
   industryCode?: string;

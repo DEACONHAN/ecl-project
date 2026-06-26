@@ -87,7 +87,7 @@ const RiskGroupConfig: React.FC = () => {
   const handleSaveDetail = async () => {
     const values = await detailForm.validateFields();
     if (!selectedGroupId) return;
-    if (!values.businessLine && !values.productType &&
+    if (!values.segment && !values.productType &&
         !values.industryCode && !values.collateralType) {
       message.error('至少填写一个匹配维度');
       return;
@@ -209,7 +209,7 @@ const RiskGroupConfig: React.FC = () => {
                 <thead>
                   <tr>
                     <th style={{ width: 70 }}>优先级</th>
-                    <th>业务条线</th>
+                    <th>segment</th>
                     <th>产品类型</th>
                     <th style={{ width: 80 }}>行业</th>
                     <th>担保类型</th>
@@ -220,7 +220,7 @@ const RiskGroupConfig: React.FC = () => {
                   {details.map((d) => (
                     <tr key={d.detailId}>
                       <td>{d.priority}</td>
-                      <td>{d.businessLine || <span className="wildcard">*</span>}</td>
+                      <td>{d.segment || <span className="wildcard">*</span>}</td>
                       <td>{d.productType || <span className="wildcard">*</span>}</td>
                       <td>{d.industryCode || <span className="wildcard">*</span>}</td>
                       <td>{d.collateralType || <span className="wildcard">*</span>}</td>
@@ -274,7 +274,7 @@ const RiskGroupConfig: React.FC = () => {
             <InputNumber min={1} style={{ width: '100%' }} />
           </Form.Item>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 12px' }}>
-            <Form.Item name="businessLine" label="业务条线"><Input /></Form.Item>
+            <Form.Item name="segment" label="segment"><Input /></Form.Item>
             <Form.Item name="productType" label="产品类型"><Input /></Form.Item>
             <Form.Item name="industryCode" label="行业代码"><Input /></Form.Item>
             <Form.Item name="collateralType" label="担保类型"><Input /></Form.Item>
