@@ -162,10 +162,21 @@ const TrialCenter: React.FC = () => {
         + result.repaymentSchedules.length + result.collaterals.length
         + result.ratings.length + result.historicalStages.length;
 
-      // Build status message
+      // Build status message with error details
       const parts: string[] = [];
       if (totalRows > 0) parts.push(`${totalRows} 行数据已填充`);
-      if (result.errors.length > 0) parts.push(`${result.errors.length} 行数据错误被跳过`);
+
+      if (result.errors.length > 0) {
+        const detailStrs = result.errors.slice(0, 5).map(
+          (e) => `[${e.sheet} 第${e.row}行] ${e.field}：${e.message}`,
+        );
+        let errorDetail = detailStrs.join('；');
+        if (result.errors.length > 5) {
+          errorDetail += ` …等共${result.errors.length}条`;
+        }
+        parts.push(`错误：${errorDetail}`);
+      }
+
       if (result.skippedSheets.length > 0) {
         const skipDetail = result.skippedSheets
           .map((s) => `${s.sheet}：${s.reason}`)
@@ -174,9 +185,9 @@ const TrialCenter: React.FC = () => {
       }
 
       if (result.errors.length > 0 || result.skippedSheets.length > 0) {
-        message.warning(`导入完成：${parts.join('，')}`, 8);
+        message.warning(`导入完成 — ${parts.join('；')}`, 8);
       } else {
-        message.success(`导入完成：${parts.join('，')}`);
+        message.success(`导入完成 — ${parts.join('；')}`);
       }
     } catch (err) {
       console.error(err);
