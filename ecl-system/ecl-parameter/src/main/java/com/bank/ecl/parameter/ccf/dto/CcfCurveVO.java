@@ -12,5 +12,7 @@ public class CcfCurveVO {
     private String commitmentType;
     private Integer commitmentDaysMin;
     private Integer commitmentDaysMax;
+    private Integer daysMin;
+    private Integer daysMax;
     private BigDecimal ccfValue;
 }

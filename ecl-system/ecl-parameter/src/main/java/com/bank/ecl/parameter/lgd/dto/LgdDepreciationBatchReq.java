@@ -29,7 +29,7 @@ public class LgdDepreciationBatchReq {
         private Integer yearOffset;
 
         @NotNull(message = "depreciationRate 不能为空")
-        @DecimalMin(value = "0.0", inclusive = true, message = "depreciationRate 最小为 0")
+        @DecimalMin(value = "-1.0", inclusive = true, message = "depreciationRate 最小为 -1")
         @DecimalMax(value = "1.0", inclusive = true, message = "depreciationRate 最大为 1")
         private BigDecimal depreciationRate;
     }

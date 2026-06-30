@@ -156,7 +156,7 @@ const SchemeOverview: React.FC = () => {
                 title: '基于本方案复制',
                 content: '将基于当前方案创建一份全新的 DRAFT 方案。',
                 onOk: async () => {
-                  await schemeApi.copy('基于 ' + scheme.schemeCode + ' 复制');
+                  await schemeApi.copyFrom(scheme.schemeId, '基于 ' + scheme.schemeCode + ' 复制');
                   message.success('复制成功');
                   navigate('/schemes');
                 },
@@ -199,6 +199,10 @@ const SchemeOverview: React.FC = () => {
           <div className="ecl-param-item" onClick={() => message.info('编辑默认LGD功能')}>
             <div className="ecl-info-label">默认 LGD (default_lgd)</div>
             <div className="ecl-info-value" style={{ color: 'var(--color-primary)' }}>{scheme.defaultLgd}</div>
+          </div>
+          <div className="ecl-param-item" onClick={() => message.info('编辑LGD下限功能')}>
+            <div className="ecl-info-label">LGD 下限 (lgd_floor)</div>
+            <div className="ecl-info-value" style={{ color: 'var(--color-primary)' }}>{scheme.lgdFloor}</div>
           </div>
         </div>
       </Panel>

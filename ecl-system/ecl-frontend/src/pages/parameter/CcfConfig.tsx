@@ -66,7 +66,7 @@ const CcfConfig: React.FC = () => {
     const values = await form.validateFields();
 
     // 校验 daysMin < daysMax
-    if (values.daysMin >= values.daysMax) {
+    if (values.commitmentDaysMin >= values.commitmentDaysMax) {
       message.error('期限下限必须小于期限上限');
       return;
     }
@@ -134,15 +134,15 @@ const CcfConfig: React.FC = () => {
     { title: '承诺类型', dataIndex: 'commitmentType', key: 'commitmentType', width: 140 },
     {
       title: '期限下限(天)',
-      dataIndex: 'daysMin',
-      key: 'daysMin',
+      dataIndex: 'commitmentDaysMin',
+      key: 'commitmentDaysMin',
       width: 130,
       render: (v: number) => (v != null ? v : '-'),
     },
     {
       title: '期限上限(天)',
-      dataIndex: 'daysMax',
-      key: 'daysMax',
+      dataIndex: 'commitmentDaysMax',
+      key: 'commitmentDaysMax',
       width: 130,
       render: (v: number) => (v != null ? v : '-'),
     },
@@ -269,8 +269,8 @@ const CcfConfig: React.FC = () => {
               <tr key={c.curveId}>
                 <td>{c.productType}</td>
                 <td>{c.commitmentType}</td>
-                <td>{c.daysMin != null ? c.daysMin : '-'}</td>
-                <td>{c.daysMax != null ? c.daysMax : '-'}</td>
+                <td>{c.commitmentDaysMin != null ? c.commitmentDaysMin : '-'}</td>
+                <td>{c.commitmentDaysMax != null ? c.commitmentDaysMax : '-'}</td>
                 <td>{(c.ccfValue * 100).toFixed(2)}%</td>
                 <td>
                   <Space>
@@ -315,7 +315,7 @@ const CcfConfig: React.FC = () => {
             <Input placeholder="如：IRREVOCABLE, REVOCABLE" />
           </Form.Item>
           <Form.Item
-            name="daysMin"
+            name="commitmentDaysMin"
             label="期限下限(天)"
             rules={[
               { required: true, message: '请输入期限下限' },
@@ -325,7 +325,7 @@ const CcfConfig: React.FC = () => {
             <InputNumber min={0} style={{ width: '100%' }} placeholder="如：0" />
           </Form.Item>
           <Form.Item
-            name="daysMax"
+            name="commitmentDaysMax"
             label="期限上限(天)"
             rules={[
               { required: true, message: '请输入期限上限' },

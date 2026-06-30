@@ -18,15 +18,11 @@ public class RiskGroupDetailEntity {
 
     private Integer priority;
 
-    private String businessLine;
-
-    private String customerType;
+    private String segment;
 
     private String productType;
 
     private String industryCode;
-
-    private String regionCode;
 
     private String collateralType;
 }

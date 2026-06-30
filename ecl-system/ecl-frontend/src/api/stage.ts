@@ -22,6 +22,7 @@ export interface StageRuleVO {
   targetStage: string;
   priority: number;
   observationDays?: number;
+  conditions?: string;
   jsonCondition?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -32,6 +33,7 @@ export interface RatingDowngradeRuleVO {
   ruleId?: string;
   schemeId: string;
   groupId: string;
+  ratingAgency?: string;
   currentRating: string;
   downgradeThreshold: number;
   createdAt?: string;

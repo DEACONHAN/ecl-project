@@ -159,17 +159,20 @@ public class PdServiceImpl implements PdService {
     // ======================== 曲线管理 ========================
 
     @Override
-    public List<PdCurveVO> listCurves(String schemeId, String groupId) {
+    public List<PdCurveVO> listCurves(String schemeId, String groupId, Long scenarioId) {
         if (schemeId == null || schemeId.isBlank()) {
             throw new EclException(ErrorCode.ECL_006, "schemeId 不能为空");
         }
         if (groupId == null || groupId.isBlank()) {
             throw new EclException(ErrorCode.ECL_006, "groupId 不能为空");
         }
-        List<PdCurveEntity> entities = pdCurveMapper.selectList(
-                new LambdaQueryWrapper<PdCurveEntity>()
-                        .eq(PdCurveEntity::getSchemeId, schemeId)
-                        .eq(PdCurveEntity::getGroupId, groupId));
+        LambdaQueryWrapper<PdCurveEntity> wrapper = new LambdaQueryWrapper<PdCurveEntity>()
+                .eq(PdCurveEntity::getSchemeId, schemeId)
+                .eq(PdCurveEntity::getGroupId, groupId);
+        if (scenarioId != null) {
+            wrapper.eq(PdCurveEntity::getScenarioId, scenarioId);
+        }
+        List<PdCurveEntity> entities = pdCurveMapper.selectList(wrapper);
         return entities.stream().map(this::toCurveVO).collect(Collectors.toList());
     }
 
@@ -190,6 +193,7 @@ public class PdServiceImpl implements PdService {
                 entity.setSchemeId(req.getSchemeId());
                 entity.setGroupId(req.getGroupId());
                 entity.setScenarioId(item.getScenarioId());
+                entity.setRatingAgency(item.getRatingAgency());
                 entity.setRatingCode(item.getRatingCode());
                 entity.setPdValue(item.getPdValue());
                 pdCurveMapper.insert(entity);
@@ -272,6 +276,7 @@ public class PdServiceImpl implements PdService {
         vo.setSchemeId(entity.getSchemeId());
         vo.setGroupId(entity.getGroupId());
         vo.setScenarioId(entity.getScenarioId());
+        vo.setRatingAgency(entity.getRatingAgency());
         vo.setRatingCode(entity.getRatingCode());
         vo.setPdValue(entity.getPdValue());
         return vo;

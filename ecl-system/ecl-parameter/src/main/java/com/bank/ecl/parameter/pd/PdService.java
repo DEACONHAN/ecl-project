@@ -22,7 +22,7 @@ public interface PdService {
 
     // ======================== 曲线管理 ========================
 
-    List<PdCurveVO> listCurves(String schemeId, String groupId);
+    List<PdCurveVO> listCurves(String schemeId, String groupId, Long scenarioId);
 
     void batchUpdateCurves(PdCurveBatchReq req);
 

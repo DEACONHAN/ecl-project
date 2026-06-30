@@ -30,6 +30,53 @@ import { pdApi, type ScenarioVO, type PdCurveVO } from '../../api/pd';
 import { GroupSelector, PageHeader, Panel } from '../../components';
 import { riskGroupApi, type RiskGroupVO } from '../../api/riskGroup';
 
+const RATING_AGENCY_OPTIONS = [
+  { label: '内部评级 (INTERNAL_CRR)', value: 'INTERNAL_CRR' },
+  { label: '穆迪 (MOODY)', value: 'MOODY' },
+  { label: '标普 (S&P)', value: 'S&P' },
+  { label: '惠誉 (FITCH)', value: 'FITCH' },
+];
+
+const RATING_SCALES: Record<string, string[]> = {
+  INTERNAL_CRR: [
+    'CRR1', 'CRR2', 'CRR3', 'CRR4', 'CRR5',
+    'CRR6', 'CRR7', 'CRR8', 'CRR9', 'CRR10',
+    'CRR11', 'CRR12', 'CRR13', 'CRR14',
+  ],
+  MOODY: [
+    'Aaa', 'Aa1', 'Aa2', 'Aa3',
+    'A1', 'A2', 'A3',
+    'Baa1', 'Baa2', 'Baa3',
+    'Ba1', 'Ba2', 'Ba3',
+    'B1', 'B2', 'B3',
+    'Caa1', 'Caa2', 'Caa3',
+    'Ca', 'C',
+  ],
+  'S&P': [
+    'AAA', 'AA+', 'AA', 'AA-',
+    'A+', 'A', 'A-',
+    'BBB+', 'BBB', 'BBB-',
+    'BB+', 'BB', 'BB-',
+    'B+', 'B', 'B-',
+    'CCC+', 'CCC', 'CCC-',
+    'CC', 'C', 'D',
+  ],
+  FITCH: [
+    'AAA', 'AA+', 'AA', 'AA-',
+    'A+', 'A', 'A-',
+    'BBB+', 'BBB', 'BBB-',
+    'BB+', 'BB', 'BB-',
+    'B+', 'B', 'B-',
+    'CCC', 'CC', 'C',
+    'RD', 'D',
+  ],
+};
+
+function getRatingOptions(agency: string | undefined): { label: string; value: string }[] {
+  const list = RATING_SCALES[agency || 'INTERNAL_CRR'] || RATING_SCALES.INTERNAL_CRR;
+  return list.map((r) => ({ label: r, value: r }));
+}
+
 const PdConfig: React.FC = () => {
   const [searchParams] = useSearchParams();
   const schemeIdFromUrl = searchParams.get('schemeId') || '';
@@ -58,6 +105,7 @@ const PdConfig: React.FC = () => {
   const [curveModalOpen, setCurveModalOpen] = useState(false);
   const [editingCurve, setEditingCurve] = useState<PdCurveVO | null>(null);
   const [curveForm] = Form.useForm();
+  const [curveFormAgency, setCurveFormAgency] = useState('INTERNAL_CRR');
 
   // ─── 矩阵视图 ───
   const [matrixModalOpen, setMatrixModalOpen] = useState(false);
@@ -109,14 +157,18 @@ const PdConfig: React.FC = () => {
 
   // 选中情景 → 加载曲线
   const loadCurves = useCallback(async (scenarioId: string) => {
+    if (!selectedSchemeId || !selectedGroupId) {
+      setCurves([]);
+      return;
+    }
     setCurvesLoading(true);
     try {
-      const res = await pdApi.listCurves(scenarioId);
+      const res = await pdApi.listCurves(selectedSchemeId, selectedGroupId, scenarioId);
       setCurves((res.data as any)?.data || res.data || []);
     } finally {
       setCurvesLoading(false);
     }
-  }, []);
+  }, [selectedSchemeId, selectedGroupId]);
 
   useEffect(() => {
     if (selectedScenarioId) {
@@ -147,7 +199,7 @@ const PdConfig: React.FC = () => {
     }
 
     if (editingScenario) {
-      await pdApi.updateScenario(editingScenario.scenarioId, values);
+      await pdApi.updateScenario(editingScenario.scenarioId, { ...values, schemeId: selectedSchemeId });
       message.success('情景更新成功');
     } else {
       await pdApi.createScenario({ ...values, schemeId: selectedSchemeId });
@@ -178,7 +230,10 @@ const PdConfig: React.FC = () => {
   // ─── 曲线 CRUD ───
   const handleSaveCurve = async () => {
     const values = await curveForm.validateFields();
-    if (!selectedScenarioId) return;
+    if (!selectedScenarioId || !selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
 
     if (editingCurve) {
       // 内联更新：构造新列表
@@ -186,20 +241,25 @@ const PdConfig: React.FC = () => {
         c.curveId === editingCurve.curveId ? { ...c, ...values } : c,
       );
       await pdApi.batchUpdateCurves(
+        selectedSchemeId,
+        selectedGroupId,
         selectedScenarioId,
-        updated.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
       );
       message.success('曲线更新成功');
     } else {
       const newCurves = [...curves, { ...values, scenarioId: selectedScenarioId, curveId: `tmp_${Date.now()}` }];
       await pdApi.batchUpdateCurves(
+        selectedSchemeId,
+        selectedGroupId,
         selectedScenarioId,
-        newCurves.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
       );
       message.success('曲线新增成功');
     }
     setCurveModalOpen(false);
     setEditingCurve(null);
+    setCurveFormAgency('INTERNAL_CRR');
     curveForm.resetFields();
     if (selectedScenarioId) loadCurves(selectedScenarioId);
   };
@@ -210,10 +270,15 @@ const PdConfig: React.FC = () => {
       title: '确认删除',
       content: '确定要删除这条 PD 曲线数据吗？',
       onOk: async () => {
-        if (!selectedScenarioId) return;
+        if (!selectedScenarioId || !selectedGroupId) {
+          message.warning('请先选择风险分组');
+          return;
+        }
         await pdApi.batchUpdateCurves(
+          selectedSchemeId,
+          selectedGroupId,
           selectedScenarioId,
-          newCurves.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
         );
         message.success('已删除');
         loadCurves(selectedScenarioId);
@@ -223,11 +288,16 @@ const PdConfig: React.FC = () => {
 
   // ─── 批量保存曲线 ───
   const handleBatchSaveCurves = async () => {
-    if (!selectedScenarioId) return;
+    if (!selectedScenarioId || !selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
     try {
       await pdApi.batchUpdateCurves(
+        selectedSchemeId,
+        selectedGroupId,
         selectedScenarioId,
-        curves.map((c) => ({ curveId: c.curveId, ratingCode: c.ratingCode, pdValue: c.pdValue })),
+        curves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
       );
       message.success('批量保存成功');
     } catch {
@@ -238,34 +308,21 @@ const PdConfig: React.FC = () => {
   // ─── 矩阵视图 ───
   const handleOpenMatrix = async () => {
     if (!selectedSchemeId) return;
+    if (!selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
     setMatrixModalOpen(true);
     setMatrixLoading(true);
     try {
-      const res = await pdApi.getMatrixDetail(selectedSchemeId);
-      const cells: { ratingCode: string; scenarioName: string; pdValue: number }[] =
-        (res.data as any)?.data || res.data || [];
-      const ratingCodes = [...new Set(cells.map((c) => c.ratingCode))].sort();
-      const scenarioNames = [...new Set(cells.map((c) => c.scenarioName))];
-      const values = ratingCodes.map((rc) =>
-        scenarioNames.map((sn) => {
-          const cell = cells.find((c) => c.ratingCode === rc && c.scenarioName === sn);
-          return cell ? cell.pdValue : 0;
-        }),
-      );
+      const res = await pdApi.getMatrix(selectedSchemeId, selectedGroupId);
+      const m = (res.data as any)?.data || res.data;
+      const ratingCodes = m.ratingCodes || [];
+      const scenarioNames = (m.scenarios || []).map((scenario: ScenarioVO) => scenario.scenarioName || scenario.scenarioType);
+      const values = m.matrix || [];
       setMatrixData({ ratingCodes, scenarioNames, values });
     } catch {
-      // 若新 API 不可用，降级使用现有 getMatrix
-      try {
-        const res = await pdApi.getMatrix(selectedSchemeId);
-        const m = (res.data as any)?.data || res.data;
-        const rgs = m.riskGroups || [];
-        const sts = m.stages || [];
-        const matrix = m.matrix || {};
-        const vals = rgs.map((rg: string) => sts.map((st: string) => matrix[rg]?.[st] ?? 0));
-        setMatrixData({ ratingCodes: rgs, scenarioNames: sts, values: vals });
-      } catch {
-        message.error('加载矩阵数据失败');
-      }
+      message.error('加载矩阵数据失败');
     } finally {
       setMatrixLoading(false);
     }
@@ -298,6 +355,7 @@ const PdConfig: React.FC = () => {
             onClick={() => {
               setEditingCurve(record);
               curveForm.setFieldsValue(record);
+              setCurveFormAgency(record.ratingAgency || 'INTERNAL_CRR');
               setCurveModalOpen(true);
             }}
           />
@@ -389,14 +447,11 @@ const PdConfig: React.FC = () => {
   // 计算剩余权重
   const totalWeight = scenarios.reduce((s, c) => s + c.weight, 0);
   const remainingWeight = Math.max(0, +(1 - totalWeight).toFixed(4));
-  const groupSelectorItems = [
-    { groupId: '', groupName: '全部分组', groupCode: 'ALL' },
-    ...groups.map((g) => ({
-      groupId: g.groupId,
-      groupName: g.groupName,
-      groupCode: g.groupCode,
-    })),
-  ];
+  const groupSelectorItems = groups.map((g) => ({
+    groupId: g.groupId,
+    groupName: g.groupName,
+    groupCode: g.groupCode,
+  }));
 
   return (
     <div className="ecl-page">
@@ -531,7 +586,13 @@ const PdConfig: React.FC = () => {
       </Panel>
 
       {/* 曲线编辑 */}
-      {selectedScenarioId && (
+      {selectedScenarioId && !selectedGroupId && (
+        <Panel>
+          <div className="ecl-empty-row">请选择一个风险分组以维护该情景下的 PD 曲线</div>
+        </Panel>
+      )}
+
+      {selectedScenarioId && selectedGroupId && (
         <Panel
           title={
             <span>
@@ -548,6 +609,7 @@ const PdConfig: React.FC = () => {
                 onClick={() => {
                   setEditingCurve(null);
                   curveForm.resetFields();
+                  setCurveFormAgency('INTERNAL_CRR');
                   setCurveModalOpen(true);
                 }}
               >
@@ -560,6 +622,7 @@ const PdConfig: React.FC = () => {
           <table className="ecl-table">
             <thead>
               <tr>
+                <th>评级机构/来源</th>
                 <th>评级代码</th>
                 <th>PD 值</th>
                 <th style={{ width: 160 }}>操作</th>
@@ -568,12 +631,13 @@ const PdConfig: React.FC = () => {
             <tbody>
               {curves.map((c) => (
                 <tr key={c.curveId}>
+                  <td>{c.ratingAgency || <span className="wildcard">*</span>}</td>
                   <td>{c.ratingCode}</td>
                   <td>{(c.pdValue * 100).toFixed(4)}%</td>
                   <td>
                     <Space>
                       <Button type="link" size="small" icon={<EditOutlined />}
-                        onClick={() => { setEditingCurve(c); curveForm.setFieldsValue(c); setCurveModalOpen(true); }} />
+                        onClick={() => { setEditingCurve(c); curveForm.setFieldsValue(c); setCurveFormAgency(c.ratingAgency || 'INTERNAL_CRR'); setCurveModalOpen(true); }} />
                       <Button type="link" size="small" danger icon={<DeleteOutlined />}
                         onClick={() => handleDeleteCurve(c)} />
                     </Space>
@@ -581,7 +645,7 @@ const PdConfig: React.FC = () => {
                 </tr>
               ))}
               {curves.length === 0 && (
-                <tr><td colSpan={3}><div className="ecl-empty-row">暂无曲线数据</div></td></tr>
+                <tr><td colSpan={5}><div className="ecl-empty-row">暂无曲线数据</div></td></tr>
               )}
             </tbody>
           </table>
@@ -648,16 +712,34 @@ const PdConfig: React.FC = () => {
         onOk={handleSaveCurve}
         onCancel={() => {
           setCurveModalOpen(false);
+          setCurveFormAgency('INTERNAL_CRR');
           curveForm.resetFields();
         }}
       >
         <Form form={curveForm} layout="vertical">
           <Form.Item
+            name="ratingAgency"
+            label="评级机构/来源"
+          >
+            <Select
+              placeholder="选择评级机构"
+              options={RATING_AGENCY_OPTIONS}
+              onChange={(val) => {
+                setCurveFormAgency(val);
+                curveForm.setFieldValue('ratingCode', undefined);
+              }}
+            />
+          </Form.Item>
+          <Form.Item
             name="ratingCode"
             label="评级代码"
-            rules={[{ required: true, message: '请输入评级代码' }]}
+            rules={[{ required: true, message: '请选择评级代码' }]}
           >
-            <Input placeholder="如：AAA, AA+, A" />
+            <Select
+              placeholder="选择评级"
+              options={getRatingOptions(curveFormAgency)}
+              showSearch
+            />
           </Form.Item>
           <Form.Item
             name="pdValue"

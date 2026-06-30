@@ -50,13 +50,12 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         if (details == null || details.isEmpty()) {
             return;
         }
-        // 校验 6 维字段不全为空
+        // 校验 4 维字段不全为空
         for (int i = 0; i < details.size(); i++) {
             RiskGroupDetailReq d = details.get(i);
-            if (d.getBusinessLine() == null && d.getCustomerType() == null
-                    && d.getProductType() == null && d.getIndustryCode() == null
-                    && d.getRegionCode() == null && d.getCollateralType() == null) {
-                throw new EclException(ErrorCode.ECL_006, "明细第 " + (i + 1) + " 行：6 维字段不可全为空，至少填写一个维度");
+            if (d.getSegment() == null && d.getProductType() == null
+                    && d.getIndustryCode() == null && d.getCollateralType() == null) {
+                throw new EclException(ErrorCode.ECL_006, "明细第 " + (i + 1) + " 行：4 维字段不可全为空，至少填写一个维度");
             }
         }
         // 校验 priority 唯一性（per scheme+group 在创建/更新时由调用方传入的 details 内校验）
@@ -131,9 +130,13 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         checkSchemeDraft(req.getSchemeId());
 
         // 生成 groupId 和 groupCode
-        int maxSeq = riskGroupMapper.selectMaxRiskGroupSeq();
         String groupId = UuidGenerator.uuid();
-        String groupCode = UuidGenerator.generateBizCode("GRP", maxSeq + 1);
+        String groupCode = req.getGroupCode();
+        int maxSeq = 0;
+        if (groupCode == null || groupCode.isBlank()) {
+            maxSeq = riskGroupMapper.selectMaxRiskGroupSeq();
+            groupCode = UuidGenerator.generateBizCode("GRP", maxSeq + 1);
+        }
 
         RiskGroupEntity entity = new RiskGroupEntity();
         entity.setGroupId(groupId);
@@ -141,7 +144,7 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         entity.setSchemeId(req.getSchemeId());
         entity.setGroupName(req.getGroupName());
         entity.setDescription(req.getDescription());
-        entity.setSortOrder(maxSeq + 1);
+        entity.setSortOrder(req.getSortOrder() != null ? req.getSortOrder() : nextSortOrder(req.getSchemeId(), maxSeq));
         entity.setCreatedAt(LocalDateTime.now());
 
         riskGroupMapper.insert(entity);
@@ -158,6 +161,14 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         return getGroup(req.getSchemeId(), groupId);
     }
 
+    private Integer nextSortOrder(String schemeId, int maxSeq) {
+        if (maxSeq > 0) {
+            return maxSeq + 1;
+        }
+        return Math.toIntExact(riskGroupMapper.selectCount(
+                new LambdaQueryWrapper<RiskGroupEntity>().eq(RiskGroupEntity::getSchemeId, schemeId))) + 1;
+    }
+
     // ======================== 更新 ========================
 
     @Override
@@ -171,8 +182,14 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         checkSchemeDraft(entity.getSchemeId());
 
         // 更新主表
+        if (req.getGroupCode() != null && !req.getGroupCode().isBlank()) {
+            entity.setGroupCode(req.getGroupCode());
+        }
         entity.setGroupName(req.getGroupName());
         entity.setDescription(req.getDescription());
+        if (req.getSortOrder() != null) {
+            entity.setSortOrder(req.getSortOrder());
+        }
         entity.setUpdatedAt(LocalDateTime.now());
         riskGroupMapper.updateById(entity);
 
@@ -256,11 +273,9 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         RiskGroupDetailVO vo = new RiskGroupDetailVO();
         vo.setDetailId(entity.getDetailId());
         vo.setPriority(entity.getPriority());
-        vo.setBusinessLine(entity.getBusinessLine());
-        vo.setCustomerType(entity.getCustomerType());
+        vo.setSegment(entity.getSegment());
         vo.setProductType(entity.getProductType());
         vo.setIndustryCode(entity.getIndustryCode());
-        vo.setRegionCode(entity.getRegionCode());
         vo.setCollateralType(entity.getCollateralType());
         return vo;
     }
@@ -270,11 +285,9 @@ public class RiskGroupServiceImpl implements RiskGroupService {
         entity.setSchemeId(schemeId);
         entity.setGroupId(groupId);
         entity.setPriority(req.getPriority());
-        entity.setBusinessLine(req.getBusinessLine());
-        entity.setCustomerType(req.getCustomerType());
+        entity.setSegment(req.getSegment());
         entity.setProductType(req.getProductType());
         entity.setIndustryCode(req.getIndustryCode());
-        entity.setRegionCode(req.getRegionCode());
         entity.setCollateralType(req.getCollateralType());
         return entity;
     }

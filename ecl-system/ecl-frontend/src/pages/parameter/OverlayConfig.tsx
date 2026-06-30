@@ -109,6 +109,10 @@ const OverlayConfig: React.FC = () => {
 
   // ─── 规则 CRUD ───
   const handleSave = async () => {
+    if (!selectedGroupId) {
+      message.warning('请先选择风险分组');
+      return;
+    }
     const values = await form.validateFields();
     if (editingRule) {
       await overlayApi.update(editingRule.overlayId!, {
@@ -147,6 +151,10 @@ const OverlayConfig: React.FC = () => {
   const handleTestMatch = async () => {
     if (!selectedSchemeId) {
       message.warning('请先选择方案');
+      return;
+    }
+    if (!selectedGroupId) {
+      message.warning('请先选择风险分组');
       return;
     }
     const fieldMap: Record<string, any> = {};

@@ -57,7 +57,7 @@ const riskGroups = [
         detailId: 'mock-rgd-001',
         groupId,
         priority: 1,
-        businessLine: '公司金融',
+        segment: '公司金融',
         customerType: '对公',
         productType: '流动资金贷款',
         industryCode: 'C',
@@ -68,7 +68,7 @@ const riskGroups = [
         detailId: 'mock-rgd-002',
         groupId,
         priority: 2,
-        businessLine: '公司金融',
+        segment: '公司金融',
         customerType: '对公',
         productType: '',
         industryCode: 'J',
@@ -267,6 +267,21 @@ function payloadFor(config: InternalAxiosRequestConfig): unknown {
       };
     }
     if (method === 'post') {
+      if (/\/v1\/schemes\/[^/]+\/copy$/.test(url)) {
+        const sourceId = url.split('/').at(-2);
+        const source = one(schemes, 'schemeId', sourceId) || schemes[0];
+        return {
+          ...source,
+          schemeId: `mock-sch-${Date.now()}`,
+          schemeCode: `SCH_${String(schemes.length + 1).padStart(3, '0')}`,
+          schemeName: `${source.schemeName}(副本)`,
+          status: 'DRAFT',
+          statusDisplay: '草稿',
+          editable: true,
+          description: String(params.description || `基于 ${source.schemeCode} 复制`),
+          createdAt: now,
+        };
+      }
       if (url.includes('/schemes')) return createFromBody(config, 'schemeId');
       if (url.includes('/risk-groups')) return createFromBody(config, 'groupId');
       if (url.includes('/stage-rules/crr-drop')) return createFromBody(config, 'ruleId');

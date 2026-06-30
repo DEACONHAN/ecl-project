@@ -10,7 +10,10 @@ public class StageRuleVO {
     private String ruleType;
     private String stageFrom;
     private String stageTo;
+    private String sourceStage;
+    private String targetStage;
     private Integer priority;
     private Integer observationDays;
     private String conditions;
+    private String jsonCondition;
 }

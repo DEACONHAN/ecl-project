@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 public class LgdCollateralDiscountVO {
     private Long discountId;
     private String schemeId;
+    private String collateralCategory;
     private String collateralType;
     private BigDecimal discountRate;
 }

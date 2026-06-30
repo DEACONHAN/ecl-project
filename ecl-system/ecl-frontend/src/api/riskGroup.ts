@@ -13,18 +13,16 @@ export interface RiskGroupVO {
 }
 
 /**
- * 匹配条件为 6 维：priority、businessLine、customerType、productType、industryCode、regionCode、collateralType
+ * 匹配条件为 4 维：priority、segment、productType、industryCode、collateralType
  * 至少填一个维度，不允许全 NULL
  */
 export interface RiskGroupDetailVO {
   detailId?: string;
   groupId?: string;
   priority: number;
-  businessLine?: string;
-  customerType?: string;
+  segment?: string;
   productType?: string;
   industryCode?: string;
-  regionCode?: string;
   collateralType?: string;
 }
 
@@ -46,10 +44,10 @@ export const riskGroupApi = {
     request.put<RiskGroupVO>(`/v1/parameters/risk-groups/${id}`, data),
 
   /** 删除分组（会级联删除匹配规则） */
-  delete: (id: string) =>
-    request.delete(`/v1/parameters/risk-groups/${id}`),
+  delete: (schemeId: string, id: string) =>
+    request.delete(`/v1/parameters/risk-groups/${id}`, { params: { schemeId } }),
 
   /** 批量更新分组的匹配规则明细 */
   updateDetails: (schemeId: string, groupId: string, details: RiskGroupDetailVO[]) =>
-    request.put(`/v1/parameters/risk-groups/${groupId}/details`, { schemeId, details }),
+    request.put(`/v1/parameters/risk-groups/${groupId}/details`, details, { params: { schemeId } }),
 };

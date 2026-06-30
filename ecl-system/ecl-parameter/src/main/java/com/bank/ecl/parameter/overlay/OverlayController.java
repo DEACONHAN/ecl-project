@@ -28,7 +28,7 @@ public class OverlayController {
 
     @GetMapping("")
     public Result<List<OverlayRuleVO>> listRules(@RequestParam String schemeId,
-                                                 @RequestParam String groupId) {
+                                                 @RequestParam(required = false) String groupId) {
         return Result.success(overlayService.listRules(schemeId, groupId));
     }
 

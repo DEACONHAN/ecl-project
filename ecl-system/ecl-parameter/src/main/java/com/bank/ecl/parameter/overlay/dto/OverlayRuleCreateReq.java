@@ -34,7 +34,6 @@ public class OverlayRuleCreateReq {
 
     private String conditions;
 
-    @NotNull(message = "effectiveDate 不能为空")
     private LocalDate effectiveDate;
 
     private LocalDate expiryDate;

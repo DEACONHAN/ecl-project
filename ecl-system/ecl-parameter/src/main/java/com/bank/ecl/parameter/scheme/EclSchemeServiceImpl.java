@@ -75,16 +75,30 @@ public class EclSchemeServiceImpl implements EclSchemeService {
             throw new EclException(ErrorCode.ECL_004, "无生效方案可供复制");
         }
 
-        // 生成新方案
+        return copyFromSource(effective, description);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public SchemeVO copyFromScheme(String sourceSchemeId, String description) {
+        EclSchemeEntity source = schemeMapper.selectById(sourceSchemeId);
+        if (source == null) {
+            throw new EclException(ErrorCode.ECL_004, "方案不存在: " + sourceSchemeId);
+        }
+
+        return copyFromSource(source, description);
+    }
+
+    private SchemeVO copyFromSource(EclSchemeEntity source, String description) {
         int maxSeq = schemeMapper.selectMaxSchemeSeq();
         String newSchemeId = UuidGenerator.uuid();
         EclSchemeEntity newEntity = new EclSchemeEntity();
         newEntity.setSchemeId(newSchemeId);
         newEntity.setSchemeCode(UuidGenerator.generateBizCode("SCH", maxSeq + 1));
-        newEntity.setSchemeName(effective.getSchemeName() + "(副本)");
+        newEntity.setSchemeName(source.getSchemeName() + "(副本)");
 
         // 3. 版本号 + 0.1
-        String oldVersion = effective.getSchemeVersion();
+        String oldVersion = source.getSchemeVersion();
         if (oldVersion == null || !oldVersion.startsWith("v")) {
             oldVersion = "v1.0";
         }
@@ -92,17 +106,18 @@ public class EclSchemeServiceImpl implements EclSchemeService {
         newEntity.setSchemeVersion("v" + String.format("%.1f", verNum));
 
         newEntity.setStatus(SchemeStatus.DRAFT.name());
-        newEntity.setDiscountRate(effective.getDiscountRate());
-        newEntity.setDefaultCcf(effective.getDefaultCcf());
-        newEntity.setDefaultLgd(effective.getDefaultLgd());
+        newEntity.setDiscountRate(source.getDiscountRate());
+        newEntity.setDefaultCcf(source.getDefaultCcf());
+        newEntity.setDefaultLgd(source.getDefaultLgd());
+        newEntity.setLgdFloor(source.getLgdFloor());
         newEntity.setCreatedBy("system");
         newEntity.setCreatedAt(LocalDateTime.now());
-        newEntity.setDescription(description != null ? description : "从 " + effective.getSchemeCode() + " 复制");
+        newEntity.setDescription(description != null ? description : "从 " + source.getSchemeCode() + " 复制");
 
         schemeMapper.insert(newEntity);
 
         // 2. 调用 SchemeCopyService.copyAll(sourceSchemeId, newSchemeId)
-        schemeCopyService.copyAll(effective.getSchemeId(), newSchemeId);
+        schemeCopyService.copyAll(source.getSchemeId(), newSchemeId);
 
         // 4. 返回 VO
         return toVO(newEntity);

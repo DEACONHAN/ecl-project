@@ -13,6 +13,10 @@ public class RiskGroupCreateReq {
     @NotBlank
     private String groupName;
 
+    private String groupCode;
+
+    private Integer sortOrder;
+
     private String description;
 
     private List<RiskGroupDetailReq> details;
@@ -20,11 +24,9 @@ public class RiskGroupCreateReq {
     @Data
     public static class RiskGroupDetailReq {
         private Integer priority;
-        private String businessLine;
-        private String customerType;
+        private String segment;
         private String productType;
         private String industryCode;
-        private String regionCode;
         private String collateralType;
     }
 }

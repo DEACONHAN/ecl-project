@@ -20,6 +20,10 @@ interface ConditionItem {
   operator: string;
   value?: string | number;
   values?: string[];
+  min?: number;
+  max?: number;
+  minExclusive?: boolean;
+  maxExclusive?: boolean;
 }
 
 interface ConditionJSON {
@@ -29,6 +33,7 @@ interface ConditionJSON {
 
 const CONDITION_TYPE_OPTIONS = [
   '逾期天数',
+  '逾期天数范围',
   '五级分类',
   'CRR 评级下降',
   '违约标识',
@@ -36,6 +41,53 @@ const CONDITION_TYPE_OPTIONS = [
   '逾期状态',
   '舆情事件',
 ];
+
+const RATING_AGENCY_OPTIONS = [
+  { label: '内部评级 (INTERNAL_CRR)', value: 'INTERNAL_CRR' },
+  { label: '穆迪 (MOODY)', value: 'MOODY' },
+  { label: '标普 (S&P)', value: 'S&P' },
+  { label: '惠誉 (FITCH)', value: 'FITCH' },
+];
+
+const RATING_SCALES: Record<string, string[]> = {
+  INTERNAL_CRR: [
+    'CRR1', 'CRR2', 'CRR3', 'CRR4', 'CRR5',
+    'CRR6', 'CRR7', 'CRR8', 'CRR9', 'CRR10',
+    'CRR11', 'CRR12', 'CRR13', 'CRR14',
+  ],
+  MOODY: [
+    'Aaa', 'Aa1', 'Aa2', 'Aa3',
+    'A1', 'A2', 'A3',
+    'Baa1', 'Baa2', 'Baa3',
+    'Ba1', 'Ba2', 'Ba3',
+    'B1', 'B2', 'B3',
+    'Caa1', 'Caa2', 'Caa3',
+    'Ca', 'C',
+  ],
+  'S&P': [
+    'AAA', 'AA+', 'AA', 'AA-',
+    'A+', 'A', 'A-',
+    'BBB+', 'BBB', 'BBB-',
+    'BB+', 'BB', 'BB-',
+    'B+', 'B', 'B-',
+    'CCC+', 'CCC', 'CCC-',
+    'CC', 'C', 'D',
+  ],
+  FITCH: [
+    'AAA', 'AA+', 'AA', 'AA-',
+    'A+', 'A', 'A-',
+    'BBB+', 'BBB', 'BBB-',
+    'BB+', 'BB', 'BB-',
+    'B+', 'B', 'B-',
+    'CCC', 'CC', 'C',
+    'RD', 'D',
+  ],
+};
+
+function getRatingOptions(agency: string | undefined): { label: string; value: string }[] {
+  const list = RATING_SCALES[agency || 'INTERNAL_CRR'] || RATING_SCALES.INTERNAL_CRR;
+  return list.map((r) => ({ label: r, value: r }));
+}
 
 /** Parse jsonCondition string → ConditionJSON, or return empty default */
 function parseConditions(jsonStr?: string): ConditionItem[] {
@@ -57,8 +109,25 @@ function serializeConditions(conditions: ConditionItem[], logic: 'OR' | 'AND'): 
 function conditionLabel(c: ConditionItem): string {
   switch (c.type) {
     case '逾期天数': {
-      const op = c.operator === 'lte' ? '≤' : '≥';
+      const opMap: Record<string, string> = {
+        gt: '>',
+        gte: '≥',
+        lt: '<',
+        lte: '≤',
+      };
+      const op = opMap[c.operator] || '≥';
       return `逾期 ${op} ${c.value} 天`;
+    }
+    case '逾期天数范围': {
+      const parts: string[] = [];
+      if (c.min != null) {
+        parts.push(c.minExclusive ? `${c.min} < ` : `${c.min} ≤ `);
+      }
+      parts.push('逾期天数');
+      if (c.max != null) {
+        parts.push(c.maxExclusive ? ` < ${c.max}` : ` ≤ ${c.max}`);
+      }
+      return parts.join('');
     }
     case '五级分类': {
       const op = c.operator === 'not_in' ? '不属于' : '属于';
@@ -67,7 +136,7 @@ function conditionLabel(c: ConditionItem): string {
     case '违约标识':
       return `违约标识 = ${c.value}`;
     case 'CRR 评级下降':
-      return `CRR 下降 ≥ ${c.value} 级`;
+      return 'CRR 评级下降';
     case '还款状态':
       return `还款状态 = ${c.value}`;
     case '逾期状态':
@@ -140,6 +209,13 @@ const StageConfig: React.FC = () => {
 
   // ─── CRR batch ───
   const [crrBatchVal, setCrrBatchVal] = useState<number>(3);
+
+  // Rating rule edit/add modal state
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [ratingModalRule, setRatingModalRule] = useState<RatingDowngradeRuleVO | null>(null); // null = add mode
+  const [ratingFormAgency, setRatingFormAgency] = useState('INTERNAL_CRR');
+  const [ratingFormCode, setRatingFormCode] = useState('');
+  const [ratingFormThreshold, setRatingFormThreshold] = useState(3);
 
   // ─── Load schemes ───
   useEffect(() => {
@@ -237,6 +313,7 @@ const StageConfig: React.FC = () => {
       payload.jsonCondition = editingRule.jsonCondition || '';
       await stageApi.updateRule(editingRule.ruleId!, {
         ...editingRule,
+        conditions: undefined,
         ...payload,
       });
       message.success('规则已更新');
@@ -294,6 +371,7 @@ const StageConfig: React.FC = () => {
 
     await stageApi.updateRule(editorRuleId, {
       ...rule,
+      conditions: undefined,
       jsonCondition: jsonStr,
     });
     message.success('条件已保存');
@@ -304,55 +382,43 @@ const StageConfig: React.FC = () => {
   // ─── CRR rating rules ───
   const openRatingModal = (rule?: RatingDowngradeRuleVO) => {
     if (rule) {
-      Modal.info({
-        title: '编辑评级阈值',
-        content: (
-          <div style={{ marginTop: 16 }}>
-            <InputNumber
-              defaultValue={rule.downgradeThreshold}
-              min={0}
-              placeholder="下降级数"
-              onChange={(v) => {
-                if (v != null) {
-                  stageApi.updateRatingRule(rule.ruleId!, {
-                    ...rule,
-                    downgradeThreshold: v,
-                  }).then(() => {
-                    message.success('已更新');
-                    loadRules();
-                  });
-                }
-              }}
-            />
-            <span style={{ marginLeft: 8, color: 'var(--color-text-secondary)', fontSize: 13 }}>级</span>
-          </div>
-        ),
-      });
+      setRatingModalRule(rule);
+      setRatingFormAgency(rule.ratingAgency || 'INTERNAL_CRR');
+      setRatingFormCode(rule.currentRating || '');
+      setRatingFormThreshold(rule.downgradeThreshold || 0);
     } else {
-      // Add new rating rule — simple prompt
-      let rating = '';
-      let threshold = 3;
-      Modal.confirm({
-        title: '新增评级下降规则',
-        content: (
-          <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Input placeholder="评级代码（如 CRR 1）" onChange={(e) => (rating = e.target.value)} />
-            <InputNumber min={0} defaultValue={3} placeholder="下降阈值（级数）" onChange={(v) => (threshold = v || 3)} />
-          </div>
-        ),
-        onOk: async () => {
-          if (!rating) { message.warning('请输入评级代码'); return; }
-          await stageApi.createRatingRule({
-            schemeId: selectedSchemeId,
-            groupId: selectedGroupId,
-            currentRating: rating,
-            downgradeThreshold: threshold,
-          });
-          message.success('已添加');
-          loadRules();
-        },
-      });
+      setRatingModalRule(null);
+      setRatingFormAgency('INTERNAL_CRR');
+      setRatingFormCode('');
+      setRatingFormThreshold(3);
     }
+    setRatingModalOpen(true);
+  };
+
+  const saveRatingRule = async () => {
+    if (!ratingFormCode) { message.warning('请选择评级代码'); return; }
+    if (ratingModalRule) {
+      // Edit existing
+      await stageApi.updateRatingRule(ratingModalRule.ruleId!, {
+        ...ratingModalRule,
+        ratingAgency: ratingFormAgency,
+        currentRating: ratingFormCode,
+        downgradeThreshold: ratingFormThreshold,
+      });
+      message.success('已更新');
+    } else {
+      // Add new
+      await stageApi.createRatingRule({
+        schemeId: selectedSchemeId,
+        groupId: selectedGroupId,
+        ratingAgency: ratingFormAgency,
+        currentRating: ratingFormCode,
+        downgradeThreshold: ratingFormThreshold,
+      });
+      message.success('已添加');
+    }
+    setRatingModalOpen(false);
+    loadRules();
   };
 
   const handleDeleteRatingRule = (rule: RatingDowngradeRuleVO) => {
@@ -432,6 +498,7 @@ const StageConfig: React.FC = () => {
           stageApi.createRatingRule({
             schemeId: selectedSchemeId,
             groupId: selectedGroupId,
+            ratingAgency: r.ratingAgency,
             currentRating: r.currentRating,
             downgradeThreshold: r.downgradeThreshold,
           })
@@ -1051,19 +1118,21 @@ const StageConfig: React.FC = () => {
                 <table className="ecl-table">
                   <thead>
                     <tr>
-                      <th style={{ width: 180 }}>评级代码</th>
-                      <th style={{ width: 160 }}>下降阈值</th>
+                      <th style={{ width: 160 }}>评级机构/来源</th>
+                      <th style={{ width: 150 }}>评级代码</th>
+                      <th style={{ width: 140 }}>下降阈值</th>
                       <th style={{ width: 100 }}>操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {ratingRules.length === 0 && (
                       <tr>
-                        <td colSpan={3}><div className="ecl-empty-row">暂无评级下降规则</div></td>
+                        <td colSpan={4}><div className="ecl-empty-row">暂无评级下降规则</div></td>
                       </tr>
                     )}
                     {ratingRules.map((r) => (
                       <tr key={r.ruleId}>
+                        <td>{r.ratingAgency || <span className="wildcard">*</span>}</td>
                         <td style={{ fontWeight: 500 }}>{r.currentRating}</td>
                         <td>
                           <span style={{ fontWeight: 600, color: 'var(--color-primary)' }}>
@@ -1217,7 +1286,9 @@ const StageConfig: React.FC = () => {
                               setEditorConditions(updated);
                             }}
                           >
+                            <option value="gt">&gt;</option>
                             <option value="gte">≥</option>
+                            <option value="lt">&lt;</option>
                             <option value="lte">≤</option>
                           </select>
                           <input
@@ -1230,6 +1301,63 @@ const StageConfig: React.FC = () => {
                               setEditorConditions(updated);
                             }}
                           />
+                          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>天</span>
+                        </>
+                      )}
+
+                      {c.type === '逾期天数范围' && (
+                        <>
+                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <input
+                              type="checkbox"
+                              checked={c.minExclusive || false}
+                              onChange={(e) => {
+                                const updated = [...editorConditions];
+                                updated[i] = { ...updated[i], minExclusive: e.target.checked };
+                                setEditorConditions(updated);
+                              }}
+                            />
+                            左开
+                          </label>
+                          <span style={{ fontSize: 12 }}>最小值:</span>
+                          <input
+                            type="number"
+                            value={c.min ?? ''}
+                            style={{ width: 65 }}
+                            placeholder="0"
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                              const updated = [...editorConditions];
+                              updated[i] = { ...updated[i], min: val };
+                              setEditorConditions(updated);
+                            }}
+                          />
+                          <span style={{ fontSize: 12 }}>~</span>
+                          <span style={{ fontSize: 12 }}>最大值:</span>
+                          <input
+                            type="number"
+                            value={c.max ?? ''}
+                            style={{ width: 65 }}
+                            placeholder="999"
+                            onChange={(e) => {
+                              const val = e.target.value === '' ? undefined : parseInt(e.target.value);
+                              const updated = [...editorConditions];
+                              updated[i] = { ...updated[i], max: val };
+                              setEditorConditions(updated);
+                            }}
+                          />
+                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <input
+                              type="checkbox"
+                              checked={c.maxExclusive || false}
+                              onChange={(e) => {
+                                const updated = [...editorConditions];
+                                updated[i] = { ...updated[i], maxExclusive: e.target.checked };
+                                setEditorConditions(updated);
+                              }}
+                            />
+                            右开
+                          </label>
                           <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>天</span>
                         </>
                       )}
@@ -1284,19 +1412,18 @@ const StageConfig: React.FC = () => {
                       )}
 
                       {c.type === 'CRR 评级下降' && (
-                        <>
-                          <input
-                            value={c.value || ''}
-                            placeholder="级数"
-                            style={{ width: 60 }}
-                            onChange={(e) => {
-                              const updated = [...editorConditions];
-                              updated[i] = { ...updated[i], value: e.target.value };
-                              setEditorConditions(updated);
-                            }}
-                          />
-                          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>级</span>
-                        </>
+                        <select
+                          style={{ width: 70 }}
+                          value={c.value || '是'}
+                          onChange={(e) => {
+                            const updated = [...editorConditions];
+                            updated[i] = { ...updated[i], value: e.target.value };
+                            setEditorConditions(updated);
+                          }}
+                        >
+                          <option value="是">是</option>
+                          <option value="否">否</option>
+                        </select>
                       )}
 
                       {c.type === '还款状态' && (
@@ -1392,7 +1519,14 @@ const StageConfig: React.FC = () => {
                     conditions: editorConditions.map((c) => {
                       const obj: any = { type: c.type };
                       if (c.type === '逾期天数') { obj.operator = c.operator; obj.value = parseInt(String(c.value)) || 0; }
+                      else if (c.type === '逾期天数范围') {
+                        if (c.min != null) obj.min = c.min;
+                        if (c.max != null) obj.max = c.max;
+                        obj.minExclusive = c.minExclusive || false;
+                        obj.maxExclusive = c.maxExclusive || false;
+                      }
                       else if (c.type === '五级分类') { obj.operator = c.operator; obj.values = c.values || []; }
+                      else if (c.type === 'CRR 评级下降') { obj.operator = 'eq'; obj.value = c.value === '是'; }
                       else if (c.type === '违约标识') { obj.operator = 'eq'; obj.value = c.value === '是'; }
                       else { obj.operator = c.operator || 'eq'; obj.value = c.value; }
                       return obj;
@@ -1448,6 +1582,52 @@ const StageConfig: React.FC = () => {
           )}
           <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
             复制目标：{groups.find((g) => g.groupId === selectedGroupId)?.groupName || selectedGroupId}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Rating rule edit/add modal */}
+      <Modal
+        open={ratingModalOpen}
+        title={ratingModalRule ? '编辑评级阈值' : '新增评级下降规则'}
+        onCancel={() => setRatingModalOpen(false)}
+        onOk={saveRatingRule}
+        okText="保存"
+        cancelText="取消"
+        destroyOnClose
+      >
+        <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级机构/来源</div>
+            <Select
+              style={{ width: '100%' }}
+              value={ratingFormAgency}
+              options={RATING_AGENCY_OPTIONS}
+              onChange={(val) => {
+                setRatingFormAgency(val);
+                setRatingFormCode(''); // reset rating when agency changes
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>评级代码</div>
+            <Select
+              style={{ width: '100%' }}
+              value={ratingFormCode || undefined}
+              placeholder="选择评级"
+              options={getRatingOptions(ratingFormAgency)}
+              onChange={(val) => setRatingFormCode(val)}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4 }}>下降阈值</div>
+            <InputNumber
+              value={ratingFormThreshold}
+              min={0}
+              placeholder="下降级数"
+              onChange={(v) => setRatingFormThreshold(v || 0)}
+            />
+            <span style={{ marginLeft: 8, color: 'var(--color-text-secondary)', fontSize: 13 }}>级</span>
           </div>
         </div>
       </Modal>
