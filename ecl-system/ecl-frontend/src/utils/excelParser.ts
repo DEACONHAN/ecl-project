@@ -57,7 +57,7 @@ export function parseTrialExcel(file: File): Promise<ExcelParseResult> {
             dateNF: 'yyyy-mm-dd',
           });
 
-          if (rows.length < 2) continue; // header only, no data
+          if (rows.length < 3) continue; // two header rows + data required
 
           const headers = rows[0] as string[];
 
@@ -69,7 +69,7 @@ export function parseTrialExcel(file: File): Promise<ExcelParseResult> {
 
           const tableRows: Record<string, unknown>[] = [];
 
-          for (let i = 1; i < rows.length; i++) {
+          for (let i = 2; i < rows.length; i++) {
             const row = rows[i];
             if (!row || (Array.isArray(row) && row.every((c) => c === undefined || c === null || c === ''))) {
               continue; // skip fully empty rows

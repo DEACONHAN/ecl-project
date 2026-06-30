@@ -9,12 +9,13 @@ export function downloadExcelTemplate(): void {
   const wb = XLSX.utils.book_new();
 
   for (const config of SHEET_CONFIGS) {
-    // Create header row from field labels
-    const headers = config.fields.map((f) => f.label);
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
+    // Row 1: Chinese labels, Row 2: field keys
+    const labels = config.fields.map((f) => f.label);
+    const keys = config.fields.map((f) => f.key);
+    const ws = XLSX.utils.aoa_to_sheet([labels, keys]);
 
     // Set column widths (approximate, based on label length)
-    ws['!cols'] = headers.map((h) => ({ wch: Math.max(h.length * 2, 12) }));
+    ws['!cols'] = labels.map((h) => ({ wch: Math.max(h.length * 2, 12) }));
 
     XLSX.utils.book_append_sheet(wb, ws, config.title);
   }
