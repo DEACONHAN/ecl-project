@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Collapse, DatePicker, Input, InputNumber, Radio, Select, Space, Table, Tag, message } from 'antd';
-import { ExperimentOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { DownloadOutlined, ExperimentOutlined, PlusOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { PageHeader, Panel } from '../../components';
 import { schemeApi, type SchemeVO } from '../../api/scheme';
@@ -9,6 +9,8 @@ import {
   type TrialLoanRowReq, type TrialFacilityRowReq, type TrialRepaymentRowReq,
   type TrialCollateralRowReq, type TrialRatingRowReq, type TrialHistoricalStageRowReq,
 } from '../../api/trial';
+import { downloadExcelTemplate } from '../../utils/excelTemplate';
+import { parseTrialExcel } from '../../utils/excelParser';
 import './TrialCenter.css';
 
 const today = dayjs();
@@ -141,6 +143,38 @@ const TrialCenter: React.FC = () => {
   const [collaterals, setCollaterals] = useState<TrialCollateralRowReq[]>([makeDefaultCollateral()]);
   const [ratings, setRatings] = useState<TrialRatingRowReq[]>([makeDefaultRating()]);
   const [historicalStages, setHistoricalStages] = useState<TrialHistoricalStageRowReq[]>([]);
+
+  // ---- Excel import ------------------------------------------------------
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleImportExcel = async (file: File) => {
+    try {
+      const result = await parseTrialExcel(file);
+
+      setLoans(result.loans.length > 0 ? result.loans as TrialLoanRowReq[] : [makeDefaultLoan()]);
+      setFacilities(result.facilities as TrialFacilityRowReq[]);
+      setRepaymentSchedules(result.repaymentSchedules as TrialRepaymentRowReq[]);
+      setCollaterals(result.collaterals as TrialCollateralRowReq[]);
+      setRatings(result.ratings as TrialRatingRowReq[]);
+      setHistoricalStages(result.historicalStages as TrialHistoricalStageRowReq[]);
+
+      const totalRows = result.loans.length + result.facilities.length
+        + result.repaymentSchedules.length + result.collaterals.length
+        + result.ratings.length + result.historicalStages.length;
+
+      if (result.errors.length > 0) {
+        message.warning(
+          `导入完成：${totalRows} 行数据已填充，${result.errors.length} 行因数据错误被跳过`,
+          6,
+        );
+      } else {
+        message.success(`导入完成：${totalRows} 行数据已填充`);
+      }
+    } catch (err) {
+      console.error(err);
+      message.error('Excel 解析失败，请确认文件格式正确');
+    }
+  };
 
   // ---- Load schemes ------------------------------------------------------
   useEffect(() => {
@@ -546,6 +580,22 @@ const TrialCenter: React.FC = () => {
       </Panel>
 
       <Panel title="试算条件" extra={<Tag color="blue">试算数据 · 不写入正式跑批</Tag>}>
+        <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+          <Button size="small" icon={<DownloadOutlined />} onClick={downloadExcelTemplate}>
+            下载模板
+          </Button>
+          <Button size="small" icon={<UploadOutlined />}
+            onClick={() => fileInputRef.current?.click()}>
+            导入 Excel
+          </Button>
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) { handleImportExcel(file); e.target.value = ''; }
+            }} />
+        </div>
+
         <div className="trial-form-row">
           <div className="trial-field">
             <label>scheme_id</label>
