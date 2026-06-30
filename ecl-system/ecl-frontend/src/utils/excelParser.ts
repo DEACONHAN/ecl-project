@@ -8,6 +8,11 @@ export interface ExcelParseError {
   message: string;
 }
 
+export interface SheetSkipped {
+  sheet: string;
+  reason: string;
+}
+
 export interface ExcelParseResult {
   loans: Record<string, unknown>[];
   facilities: Record<string, unknown>[];
@@ -16,7 +21,17 @@ export interface ExcelParseResult {
   ratings: Record<string, unknown>[];
   historicalStages: Record<string, unknown>[];
   errors: ExcelParseError[];
+  skippedSheets: SheetSkipped[];
 }
+
+const KEY_MAPPING: Record<string, SheetKey> = {
+  loans: 'loans',
+  facilities: 'facilities',
+  repaymentSchedules: 'repaymentSchedules',
+  collaterals: 'collaterals',
+  ratings: 'ratings',
+  historicalStages: 'historicalStages',
+};
 
 /**
  * Parse an uploaded Excel file into typed row arrays.
@@ -40,16 +55,26 @@ export function parseTrialExcel(file: File): Promise<ExcelParseResult> {
           ratings: [],
           historicalStages: [],
           errors: [],
+          skippedSheets: [],
         };
+
+        // Build a set of expected sheet names for reverse lookup
+        const expectedTitles = new Set(SHEET_CONFIGS.map((c) => c.title));
+        const workbookSheetNames = workbook.SheetNames;
 
         for (const config of SHEET_CONFIGS) {
           const sheet = workbook.Sheets[config.title];
+
           if (!sheet) {
-            // Sheet not found — skip (user may not have data for this table)
+            // Expected sheet not found in workbook — report it
+            result.skippedSheets.push({
+              sheet: config.title,
+              reason: `Excel 中未找到「${config.title}」sheet（可能被删除或重命名）`,
+            });
             continue;
           }
 
-          // Convert sheet to array-of-arrays, first row = headers
+          // Convert sheet to array-of-arrays
           const rows: unknown[][] = XLSX.utils.sheet_to_json(sheet, {
             header: 1,
             defval: undefined,
@@ -57,7 +82,13 @@ export function parseTrialExcel(file: File): Promise<ExcelParseResult> {
             dateNF: 'yyyy-mm-dd',
           });
 
-          if (rows.length < 3) continue; // two header rows + data required
+          if (rows.length < 3) {
+            result.skippedSheets.push({
+              sheet: config.title,
+              reason: `「${config.title}」只有表头、没有数据行`,
+            });
+            continue;
+          }
 
           const headers = rows[0] as string[];
 
@@ -103,7 +134,6 @@ export function parseTrialExcel(file: File): Promise<ExcelParseResult> {
                   }
                   value = num;
                 } else if (field.type === 'date') {
-                  // XLSX with cellDates:true returns Date objects; keep as YYYY-MM-DD string
                   if (value instanceof Date) {
                     const yyyy = value.getFullYear();
                     const mm = String(value.getMonth() + 1).padStart(2, '0');
@@ -135,17 +165,17 @@ export function parseTrialExcel(file: File): Promise<ExcelParseResult> {
             }
           }
 
-          // Map to result key
-          const keyMapping: Record<string, SheetKey> = {
-            loans: 'loans',
-            facilities: 'facilities',
-            repaymentSchedules: 'repaymentSchedules',
-            collaterals: 'collaterals',
-            ratings: 'ratings',
-            historicalStages: 'historicalStages',
-          };
+          result[KEY_MAPPING[config.key]] = tableRows;
+        }
 
-          result[keyMapping[config.key]] = tableRows;
+        // Reverse check: workbook sheets that don't match any expected title
+        for (const name of workbookSheetNames) {
+          if (!expectedTitles.has(name)) {
+            result.skippedSheets.push({
+              sheet: name,
+              reason: `「${name}」不是预期的表名，未被导入（预期表名：${SHEET_CONFIGS.map((c) => c.title).join('、')}）`,
+            });
+          }
         }
 
         resolve(result);

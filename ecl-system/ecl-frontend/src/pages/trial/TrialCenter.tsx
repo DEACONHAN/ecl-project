@@ -162,13 +162,21 @@ const TrialCenter: React.FC = () => {
         + result.repaymentSchedules.length + result.collaterals.length
         + result.ratings.length + result.historicalStages.length;
 
-      if (result.errors.length > 0) {
-        message.warning(
-          `导入完成：${totalRows} 行数据已填充，${result.errors.length} 行因数据错误被跳过`,
-          6,
-        );
+      // Build status message
+      const parts: string[] = [];
+      if (totalRows > 0) parts.push(`${totalRows} 行数据已填充`);
+      if (result.errors.length > 0) parts.push(`${result.errors.length} 行数据错误被跳过`);
+      if (result.skippedSheets.length > 0) {
+        const skipDetail = result.skippedSheets
+          .map((s) => `${s.sheet}：${s.reason}`)
+          .join('；');
+        parts.push(`${result.skippedSheets.length} 张表被跳过（${skipDetail}）`);
+      }
+
+      if (result.errors.length > 0 || result.skippedSheets.length > 0) {
+        message.warning(`导入完成：${parts.join('，')}`, 8);
       } else {
-        message.success(`导入完成：${totalRows} 行数据已填充`);
+        message.success(`导入完成：${parts.join('，')}`);
       }
     } catch (err) {
       console.error(err);
