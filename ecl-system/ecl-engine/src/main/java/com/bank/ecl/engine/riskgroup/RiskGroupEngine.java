@@ -73,7 +73,7 @@ public class RiskGroupEngine implements EclEngine {
                 if (asset == null) {
                     continue;
                 }
-                String groupId = matchGroup(asset, rules);
+                String groupId = matchGroup(asset, rules, groupMap);
                 asset.setGroupId(groupId);
 
                 if (DEFAULT_GROUP_ID.equals(groupId)) {
@@ -121,18 +121,35 @@ public class RiskGroupEngine implements EclEngine {
 
     /**
      * 逐条规则匹配：4 维 AND，NULL 或空字符串 = 通配。
-     * 规则按 priority ASC 已排序，命中第一条即返回。
+     * 收集所有命中的分组ID，按分组的 sortOrder ASC 选最优。
+     * 若 sortOrder 相同，取第一个命中的分组。
      */
-    private String matchGroup(AssetInput asset, List<RiskGroupDetailEntity> rules) {
+    private String matchGroup(AssetInput asset, List<RiskGroupDetailEntity> rules, Map<String, RiskGroupEntity> groupMap) {
+        // 收集所有命中的分组ID（去重保序）
+        java.util.LinkedHashSet<String> matchedGroupIds = new java.util.LinkedHashSet<>();
         for (RiskGroupDetailEntity rule : rules) {
             if (matchDimension(asset.getSegment(), rule.getSegment())
                     && matchDimension(asset.getProductType(), rule.getProductType())
                     && matchDimension(asset.getIndustryCode(), rule.getIndustryCode())
                     && matchDimension(asset.getCollateralType(), rule.getCollateralType())) {
-                return rule.getGroupId();
+                matchedGroupIds.add(rule.getGroupId());
             }
         }
-        return DEFAULT_GROUP_ID;
+        if (matchedGroupIds.isEmpty()) {
+            return DEFAULT_GROUP_ID;
+        }
+        // 从 groupMap 中取各分组的 sortOrder，选 sortOrder 最小的
+        String bestGroupId = null;
+        Integer bestSortOrder = Integer.MAX_VALUE;
+        for (String gid : matchedGroupIds) {
+            RiskGroupEntity group = groupMap.get(gid);
+            Integer sortOrder = (group != null && group.getSortOrder() != null) ? group.getSortOrder() : Integer.MAX_VALUE;
+            if (sortOrder < bestSortOrder) {
+                bestSortOrder = sortOrder;
+                bestGroupId = gid;
+            }
+        }
+        return bestGroupId != null ? bestGroupId : DEFAULT_GROUP_ID;
     }
 
     /**

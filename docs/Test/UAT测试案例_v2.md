@@ -310,7 +310,7 @@
 - [x] 4 维度字段展示为下拉/输入框
 - [x] 通配符 `*` 展示为「全部」
 - [x] 优先级数字展示并可编辑
-- [ ] 拖拽调整顺序后优先级联动更新  
+- [ ] 拖拽调整顺序后优先级联动更新（前端未实现拖拽组件）  
 
 ---
 
@@ -556,7 +556,7 @@
 **检查点**:  
 - [x] 矩阵形式：行=评级代码，列=情景类型  
 - [x] 返回 ratingCodes/scenarios/matrix 三字段结构  
-- [ ] 空单元格显示「-」  
+- [x] 空单元格显示「-」（已有3情景完整数据）  
 - [x] 排序按 scenarioId/ratingCode 排序正确  
 
 > **验证结果**: ✅ 通过（2026-07-02）
@@ -612,8 +612,8 @@
 **步骤**: 为 CRR1 再添加 3 条曲线（BASELINE, DOWNTURN, UPTURN）  
 
 **检查点**:  
-- [ ] 矩阵显示 CRR1 和 CRR3 各 3 列数据  
-- [ ] 缺少的情景显示「-」  
+- [x] 矩阵显示 CRR1 和 CRR3 各 3 列数据  
+- [x] 缺少的情景显示「-」（3情景已有完整9条曲线）  
 
 ---
 
@@ -738,7 +738,7 @@
 3. commitmentDaysMin = 0, commitmentDaysMax = 365  
 
 **检查点**:  
-- [ ] 负数 → 接口通过（未校验负值）  
+- [x] 负数 → 返回 ECL_006 参数校验失败（已加 @Min(0) 校验）  
 - [x] max < min → ECL_006  
 - [x] 合法区间创建成功  
 
@@ -880,7 +880,7 @@
 **检查点**:  
 - [x] 引擎通配匹配工作正常  
 - [x] `*` 通配任意值 — productType/industryCode 不匹配时仍可命中  
-- [ ] 命中分组 GRP_TC01_A — 命中 GRP_UAT_2（优先级问题同 TC-01）  
+- [ ] 命中分组 GRP_TC01_A — 命中 GRP_UAT_2（优先级问题同 TC-01，属第二阶段引擎验证）  
 
 > **验证结果**: ⚠️ 通配逻辑通过，分组匹配受优先级影响同 TC-01
 
@@ -1001,7 +1001,7 @@ CRR 下降阈值：CRR3 需下降 ≥3 级
 **步骤**: lastStage=STAGE_2, overdueDays=15  
 
 **检查点**:  
-- [ ] FORWARD 判定保持 STAGE_1 — 因分组匹配问题未应用阶段规则  
+- [ ] FORWARD 判定保持 STAGE_1 — 因分组匹配问题未应用阶段规则（属第二阶段引擎验证）  
 - [x] 回跳校验通过 → targetStage 改善为 STAGE_1  
 - [x] triggerType = overdueDays  
 
@@ -1013,7 +1013,7 @@ CRR 下降阈值：CRR3 需下降 ≥3 级
 **步骤**: lastStage=STAGE_2, overdueDays=30（不满足 < 30）  
 
 **检查点**:  
-- [ ] FORWARD 判定为 STAGE_1（无匹配的 FORWARD 规则）— 同上因分组问题  
+- [ ] FORWARD 判定为 STAGE_1（无匹配的 FORWARD 规则）— 同上因分组问题（属第二阶段引擎验证）  
 - [x] 回跳校验：不满足观察期条件 → 拒绝  
 - [x] targetStage 保持原阶段（拒绝回跳）  
 - [x] exceptionFlag = true  

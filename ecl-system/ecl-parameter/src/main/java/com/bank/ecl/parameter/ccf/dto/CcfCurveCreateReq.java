@@ -17,8 +17,10 @@ public class CcfCurveCreateReq {
 
     private String commitmentType;
 
+    @Min(value = 0, message = "commitmentDaysMin 不能为负数")
     private Integer commitmentDaysMin;
 
+    @Min(value = 0, message = "commitmentDaysMax 不能为负数")
     private Integer commitmentDaysMax;
 
     @Min(value = 0, message = "daysMin 不能为负数")
