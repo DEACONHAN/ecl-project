@@ -142,7 +142,8 @@ public class RiskGroupEngine implements EclEngine {
      * 否则精确匹配。
      */
     private boolean matchDimension(String assetValue, String ruleValue) {
-        if (ruleValue == null || ruleValue.isBlank()) {
+        // NULL、空或 * 均视为通配
+        if (ruleValue == null || ruleValue.isBlank() || "*".equals(ruleValue.trim())) {
             return true;
         }
         if (assetValue == null || assetValue.isBlank()) {

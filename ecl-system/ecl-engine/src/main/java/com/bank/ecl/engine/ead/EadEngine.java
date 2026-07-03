@@ -76,7 +76,7 @@ public class EadEngine implements EclEngine {
                     double principal = toDouble(s.getDuePrincipal());
                     double interest = toDouble(s.getDueInterest());
                     double amount = principal + interest;
-                    double years = ChronoUnit.DAYS.between(asset.getCalcDate(), s.getDueDate()) / 365.0;
+                    double years = calcYearsAct365(asset.getCalcDate(), s.getDueDate());
                     double discounted = amount / Math.pow(1 + discountRate, years);
                     sum += discounted;
                     futurePeriods++;
@@ -205,4 +205,12 @@ public class EadEngine implements EclEngine {
     }
 
     private double toDouble(BigDecimal v) { return v != null ? v.doubleValue() : 0.0; }
+
+    /**
+     * ACT/365 天数惯例：实际天数 ÷ 365。
+     * 年化利率折现时使用该惯例将天数转为年数，与年化复利公式 (1+r)^t 配合。
+     */
+    private double calcYearsAct365(LocalDate from, LocalDate to) {
+        return ChronoUnit.DAYS.between(from, to) / 365.0;
+    }
 }

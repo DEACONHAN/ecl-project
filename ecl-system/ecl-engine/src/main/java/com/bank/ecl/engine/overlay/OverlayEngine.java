@@ -59,7 +59,11 @@ public class OverlayEngine implements EclEngine {
     private void processAsset(AssetInput a, Map<String, List<OverlayRuleEntity>> rulesByGroup, LocalDate calcDate) {
         double ecl = a.getEclValue();
         String groupId = a.getGroupId();
-        List<OverlayRuleEntity> rules = rulesByGroup.getOrDefault(groupId, Collections.emptyList());
+        // 包含全局规则（空groupId）和分组特定规则
+        List<OverlayRuleEntity> globalRules = rulesByGroup.getOrDefault("", Collections.emptyList());
+        List<OverlayRuleEntity> groupRules = rulesByGroup.getOrDefault(groupId, Collections.emptyList());
+        List<OverlayRuleEntity> rules = new ArrayList<>(globalRules);
+        rules.addAll(groupRules);
 
         OverlayRuleEntity bestRule = null;
         double bestRatio = Double.NEGATIVE_INFINITY;
@@ -123,6 +127,10 @@ public class OverlayEngine implements EclEngine {
                         .eq(OverlayRuleEntity::getSchemeId, schemeId)
                         .orderByAsc(OverlayRuleEntity::getPriority));
         if (rules == null) return Collections.emptyMap();
-        return rules.stream().collect(Collectors.groupingBy(OverlayRuleEntity::getGroupId));
+        // null groupId 用空字符串替代，避免 groupingBy NPE
+        return rules.stream().collect(Collectors.groupingBy(
+                r -> r.getGroupId() == null ? "" : r.getGroupId(),
+                LinkedHashMap::new,
+                Collectors.toList()));
     }
 }

@@ -54,7 +54,7 @@ public class StageEngine implements EclEngine {
         List<StageRuleEntity> allRules = loadRules(schemeId);
         Map<String, List<StageRuleEntity>> forwardByGroup = partitionByGroup(
                 allRules.stream()
-                        .filter(r -> "FORWARD".equals(r.getRuleType()))
+                        .filter(r -> "FORWARD".equals(r.getRuleType()) || "CRR_DROP".equals(r.getRuleType()))
                         .collect(Collectors.toList()));
         Map<String, List<StageRuleEntity>> rollbackByGroup = partitionByGroup(
                 allRules.stream()
@@ -123,7 +123,11 @@ public class StageEngine implements EclEngine {
         boolean exceptionFlag = true;
 
         for (StageRuleEntity rule : forwardRules) {
-            if (StageConditionEvaluator.evaluate(rule.getConditions(), asset, crrDropMap)) {
+            boolean matched = StageConditionEvaluator.evaluate(rule.getConditions(), asset, crrDropMap);
+            log.debug("[6.2 Stage] asset={} ruleId={} stageTo={} conditions={} → matched={}",
+                    asset.getAssetId(), rule.getRuleId(), rule.getStageTo(),
+                    rule.getConditions(), matched);
+            if (matched) {
                 String stageTo = rule.getStageTo();
                 if (stageTo == null) {
                     continue;
@@ -141,12 +145,6 @@ public class StageEngine implements EclEngine {
         }
 
         // ═══ Step 2: ROLLBACK 回跳校验 ═══
-        // 直接阻断 STAGE_3 → STAGE_1 回跳（业务规则：阶段三不可直接回跳至阶段一）
-        if (lastStage == Stage.STAGE_3 && targetStage == Stage.STAGE_1) {
-            log.debug("[6.2 Stage] asset {} direct rollback STAGE_3 -> STAGE_1 blocked",
-                    asset.getAssetId());
-            return new StageResult(lastStage, "ROLLBACK_BLOCKED", true);
-        }
 
         if (targetStage.ordinal() < lastStage.ordinal()) {
             // 阶段改善，需要回跳校验

@@ -65,11 +65,10 @@ public class PdEngine implements EclEngine {
         String groupId = asset.getGroupId();
         StageResult sr = asset.getStageResult();
         Stage stage = sr != null ? sr.getStage() : Stage.STAGE_1;
-
-        // 到期日为空或不晚于计量日时阻断；Stage3 也必须先通过期限校验。
-        if (asset.getMaturityDate() == null
-                || asset.getCalcDate() == null
-                || !asset.getMaturityDate().isAfter(asset.getCalcDate())) {
+        // 到期日为空则阻断（数据缺失）；已过期不走阻断，由存续期转换兜底。
+        // Stage 2 存续期转换有 Math.max(months/12, 1.0) 兜底，
+        // Stage 3 不查曲线直接取 1.0，均无需到期日校验。
+        if (asset.getMaturityDate() == null || asset.getCalcDate() == null) {
             asset.setPdException("ECL_001");
             return;
         }
