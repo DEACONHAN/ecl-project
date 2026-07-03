@@ -363,7 +363,7 @@ const OverlayConfig: React.FC = () => {
   const [schemes, setSchemes] = useState<SchemeVO[]>([]);
   const [selectedSchemeId, setSelectedSchemeId] = useState<string>(effectiveSchemeId);
   const [groups, setGroups] = useState<RiskGroupVO[]>([]);
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+
 
   // ─── 规则列表 ───
   const [rules, setRules] = useState<OverlayRuleVO[]>([]);
@@ -405,13 +405,13 @@ const OverlayConfig: React.FC = () => {
   useEffect(() => {
     if (!selectedSchemeId) {
       setGroups([]);
-      setSelectedGroupId('');
+      
       return;
     }
     riskGroupApi.listByScheme(selectedSchemeId).then((res) => {
       setGroups((res.data as any)?.data || res.data || []);
     });
-    setSelectedGroupId('');
+    
     setRules([]);
   }, [selectedSchemeId]);
 
@@ -423,12 +423,12 @@ const OverlayConfig: React.FC = () => {
     }
     setLoading(true);
     try {
-      const res = await overlayApi.list(selectedSchemeId, selectedGroupId || undefined);
+      const res = await overlayApi.list(selectedSchemeId);
       setRules((res.data as any)?.data || res.data || []);
     } finally {
       setLoading(false);
     }
-  }, [selectedSchemeId, selectedGroupId]);
+  }, [selectedSchemeId]);
 
   useEffect(() => {
     loadRules();
@@ -436,23 +436,19 @@ const OverlayConfig: React.FC = () => {
 
   // ─── 规则 CRUD ───
   const handleSave = async () => {
-    if (!selectedGroupId) {
-      message.warning('请先选择风险分组');
-      return;
-    }
     const values = await form.validateFields();
     if (editingRule) {
       await overlayApi.update(editingRule.overlayId!, {
         ...values,
         schemeId: selectedSchemeId,
-        groupId: selectedGroupId || undefined,
+        groupId: undefined,
       });
       message.success('规则更新成功');
     } else {
       await overlayApi.create({
         ...values,
         schemeId: selectedSchemeId,
-        groupId: selectedGroupId || undefined,
+        groupId: undefined,
       });
       message.success('规则创建成功');
     }
@@ -477,7 +473,7 @@ const OverlayConfig: React.FC = () => {
   // ─── 命中测试 ───
   const handleTestMatch = async () => {
     if (!selectedSchemeId) { message.warning('请先选择方案'); return; }
-    if (!selectedGroupId) { message.warning('请先选择风险分组'); return; }
+
     const fieldMap: Record<string, any> = {};
     testFields.forEach((f) => {
       if (f.key && f.value) {
@@ -494,7 +490,7 @@ const OverlayConfig: React.FC = () => {
     try {
       const res = await overlayApi.testMatch({
         schemeId: selectedSchemeId,
-        groupId: selectedGroupId || undefined,
+        groupId: undefined,
         fieldValues: fieldMap,
       });
       setTestResult((res.data as any)?.data || res.data);
@@ -544,11 +540,6 @@ const OverlayConfig: React.FC = () => {
     PERCENTAGE: 'green',
     FIXED: 'orange',
   };
-  const groupSelectorItems = groups.map((g) => ({
-    groupId: g.groupId,
-    groupName: g.groupName,
-    groupCode: g.groupCode,
-  }));
 
   // ─── 渲染 ───
   if (!selectedSchemeId) {
@@ -564,7 +555,7 @@ const OverlayConfig: React.FC = () => {
               style={{ width: 300, marginTop: 16 }}
               placeholder="请选择 ECL 方案"
               value={selectedSchemeId || undefined}
-              onChange={(v) => { setSelectedSchemeId(v); setSelectedGroupId(''); }}
+              onChange={(v) => { setSelectedSchemeId(v);  }}
               options={schemes.map((s) => ({ label: `${s.schemeName}(${s.schemeCode})`, value: s.schemeId }))}
             />
           </Empty>
@@ -584,20 +575,12 @@ const OverlayConfig: React.FC = () => {
               style={{ width: 280 }}
               placeholder="请选择 ECL 方案"
               value={selectedSchemeId || undefined}
-              onChange={(v) => { setSelectedSchemeId(v); setSelectedGroupId(''); }}
+              onChange={(v) => { setSelectedSchemeId(v);  }}
               options={schemes.map((s) => ({ label: `${s.schemeName}(${s.schemeCode})`, value: s.schemeId }))}
             />
           </Space>
         }
       />
-
-      {groups.length > 0 && (
-        <GroupSelector
-          groups={groupSelectorItems}
-          selectedId={selectedGroupId || undefined}
-          onChange={setSelectedGroupId}
-        />
-      )}
 
       <Panel
         extra={
@@ -688,9 +671,9 @@ const OverlayConfig: React.FC = () => {
             };
             delete finalValues._conditions;
             if (editingRule) {
-              await overlayApi.update(editingRule.overlayId!, { ...finalValues, schemeId: selectedSchemeId, groupId: selectedGroupId || undefined });
+              await overlayApi.update(editingRule.overlayId!, { ...finalValues, schemeId: selectedSchemeId, groupId: undefined });
             } else {
-              await overlayApi.create({ ...finalValues, schemeId: selectedSchemeId, groupId: selectedGroupId || undefined });
+              await overlayApi.create({ ...finalValues, schemeId: selectedSchemeId, groupId: undefined });
             }
             message.success(editingRule ? '规则更新成功' : '规则创建成功');
             setModalOpen(false);
