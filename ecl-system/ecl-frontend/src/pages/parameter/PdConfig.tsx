@@ -189,20 +189,20 @@ const PdConfig: React.FC = () => {
   const handleSaveScenario = async () => {
     const values = await scenarioForm.validateFields();
 
-    // 校验权重总和 ≤ 1.0
+    // 校验权重总和 ≤ 100%
     const otherWeight = scenarios
       .filter((s) => s.scenarioId !== editingScenario?.scenarioId)
-      .reduce((sum, s) => sum + s.weight, 0);
-    if (otherWeight + values.weight > 1.0) {
-      message.error('同一方案下所有情景权重总和不超过 1.0');
+      .reduce((sum, s) => sum + (s.weight * 100), 0);
+    if (otherWeight + values.weight > 100.0) {
+      message.error('同一方案下所有情景权重总和不超 100%');
       return;
     }
 
     if (editingScenario) {
-      await pdApi.updateScenario(editingScenario.scenarioId, { ...values, schemeId: selectedSchemeId });
+      await pdApi.updateScenario(editingScenario.scenarioId, { ...values, weight: +(values.weight / 100).toFixed(4), schemeId: selectedSchemeId });
       message.success('情景更新成功');
     } else {
-      await pdApi.createScenario({ ...values, schemeId: selectedSchemeId });
+      await pdApi.createScenario({ ...values, weight: +(values.weight / 100).toFixed(4), schemeId: selectedSchemeId });
       message.success('情景创建成功');
     }
     setScenarioModalOpen(false);
@@ -488,14 +488,6 @@ const PdConfig: React.FC = () => {
         }
       />
 
-      {groups.length > 0 && (
-        <GroupSelector
-          groups={groupSelectorItems}
-          selectedId={selectedGroupId}
-          onChange={setSelectedGroupId}
-        />
-      )}
-
       {/* 情景列表 */}
       <Panel title="情景管理">
         <div style={{ marginBottom: 12 }}>
@@ -543,7 +535,7 @@ const PdConfig: React.FC = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingScenario(scenario);
-                            scenarioForm.setFieldsValue(scenario);
+                            scenarioForm.setFieldsValue({ ...scenario, weight: scenario.weight != null ? +(scenario.weight * 100).toFixed(2) : 0 });
                             setScenarioModalOpen(true);
                           }}
                         />
@@ -584,6 +576,14 @@ const PdConfig: React.FC = () => {
           </Row>
         )}
       </Panel>
+
+      {groups.length > 0 && (
+        <GroupSelector
+          groups={groupSelectorItems}
+          selectedId={selectedGroupId}
+          onChange={setSelectedGroupId}
+        />
+      )}
 
       {/* 曲线编辑 */}
       {selectedScenarioId && !selectedGroupId && (
@@ -679,23 +679,24 @@ const PdConfig: React.FC = () => {
           </Form.Item>
           <Form.Item
             name="weight"
-            label="权重"
+            label="权重 (%)"
             rules={[
               { required: true, message: '请输入权重' },
               {
                 type: 'number',
                 min: 0,
-                max: 1,
-                message: '权重范围 0 ~ 1',
+                max: 100,
+                message: '权重范围 0 ~ 100',
               },
             ]}
           >
             <InputNumber
               min={0}
-              max={1}
-              step={0.01}
+              max={100}
+              step={0.1}
               style={{ width: '100%' }}
-              placeholder="0 ~ 1 之间的小数"
+              placeholder="如：50"
+              addonAfter="%"
             />
           </Form.Item>
           <Typography.Text type="secondary">
