@@ -238,17 +238,19 @@ const PdConfig: React.FC = () => {
     if (editingCurve) {
       // 内联更新：构造新列表
       const updated = curves.map((c) =>
-        c.curveId === editingCurve.curveId ? { ...c, ...values } : c,
+        c.curveId === editingCurve.curveId
+          ? { ratingCode: values.ratingCode, pdValue: +(values.pdValue / 100).toFixed(6), ratingAgency: values.ratingAgency }
+          : { ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency },
       );
       await pdApi.batchUpdateCurves(
         selectedSchemeId,
         selectedGroupId,
         selectedScenarioId,
-        updated.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
+        updated,
       );
       message.success('曲线更新成功');
     } else {
-      const newCurves = [...curves, { ...values, scenarioId: selectedScenarioId, curveId: `tmp_${Date.now()}` }];
+      const newCurves = [...curves, { ratingCode: values.ratingCode, pdValue: +(values.pdValue / 100).toFixed(6), ratingAgency: values.ratingAgency, scenarioId: selectedScenarioId, curveId: `tmp_${Date.now()}` }];
       await pdApi.batchUpdateCurves(
         selectedSchemeId,
         selectedGroupId,
@@ -278,7 +280,7 @@ const PdConfig: React.FC = () => {
           selectedSchemeId,
           selectedGroupId,
           selectedScenarioId,
-          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: c.pdValue, ratingAgency: c.ratingAgency })),
+          newCurves.map((c) => ({ ratingCode: c.ratingCode, pdValue: +(c.pdValue / 100).toFixed(6), ratingAgency: c.ratingAgency })),
         );
         message.success('已删除');
         loadCurves(selectedScenarioId);
@@ -637,7 +639,7 @@ const PdConfig: React.FC = () => {
                   <td>
                     <Space>
                       <Button type="link" size="small" icon={<EditOutlined />}
-                        onClick={() => { setEditingCurve(c); curveForm.setFieldsValue(c); setCurveFormAgency(c.ratingAgency || 'INTERNAL_CRR'); setCurveModalOpen(true); }} />
+                        onClick={() => { setEditingCurve(c); curveForm.setFieldsValue({ ...c, pdValue: c.pdValue != null ? +(c.pdValue * 100).toFixed(4) : 0 }); setCurveFormAgency(c.ratingAgency || 'INTERNAL_CRR'); setCurveModalOpen(true); }} />
                       <Button type="link" size="small" danger icon={<DeleteOutlined />}
                         onClick={() => handleDeleteCurve(c)} />
                     </Space>
@@ -744,23 +746,24 @@ const PdConfig: React.FC = () => {
           </Form.Item>
           <Form.Item
             name="pdValue"
-            label="PD 值"
+            label="PD 值 (%)"
             rules={[
               { required: true, message: '请输入 PD 值' },
               {
                 type: 'number',
                 min: 0,
-                max: 1,
-                message: 'PD 值范围 0 ~ 1',
+                max: 100,
+                message: 'PD 值范围 0 ~ 100',
               },
             ]}
           >
             <InputNumber
               min={0}
-              max={1}
-              step={0.0001}
+              max={100}
+              step={0.01}
               style={{ width: '100%' }}
-              placeholder="0 ~ 1 之间的小数，如 0.0012"
+              placeholder="如：0.05（代表 0.05%）"
+              addonAfter="%"
             />
           </Form.Item>
         </Form>

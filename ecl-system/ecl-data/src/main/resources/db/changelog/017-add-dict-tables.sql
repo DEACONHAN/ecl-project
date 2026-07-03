@@ -109,3 +109,17 @@ INSERT IGNORE INTO tbl_dict_entry (entry_id, category_id, entry_code, entry_name
 ('de_cmt_02', 'dict_cat_commitment', 'TERM_LOAN',     '定期贷款',     2),
 ('de_cmt_03', 'dict_cat_commitment', 'STANDBY_LC',    '备用信用证',   3),
 ('de_cmt_04', 'dict_cat_commitment', 'BILL_ACCEPT',   '票据承兑',     4);
+
+--changeset ecl:017-seed-collateral-category context:seed
+INSERT IGNORE INTO tbl_dict_category (category_id, category_code, category_name, description, is_system, sort_order) VALUES
+('dict_cat_collateral_category', 'COLLATERAL_CATEGORY', '押品大类', '抵质押品大类分类（LGD折扣率适用）', 1, 7);
+
+INSERT IGNORE INTO tbl_dict_entry (entry_id, category_id, entry_code, entry_name, sort_order) VALUES
+('de_cc_01', 'dict_cat_collateral_category', 'REAL_ESTATE',  '房地产',   1),
+('de_cc_02', 'dict_cat_collateral_category', 'EQUIPMENT',   '设备',     2),
+('de_cc_03', 'dict_cat_collateral_category', 'FINANCIAL',   '金融资产', 3),
+('de_cc_04', 'dict_cat_collateral_category', 'INVENTORY',   '存货',     4),
+('de_cc_05', 'dict_cat_collateral_category', 'RECEIVABLE',  '应收账款', 5),
+('de_cc_06', 'dict_cat_collateral_category', 'GUARANTEE',   '保证',     6),
+('de_cc_07', 'dict_cat_collateral_category', 'DEPOSIT',     '保证金',   7),
+('de_cc_08', 'dict_cat_collateral_category', 'OTHER',       '其他',     8);
