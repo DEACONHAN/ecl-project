@@ -2,7 +2,7 @@ package com.bank.ecl.parameter.ccf.dto;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -13,18 +13,18 @@ public class CcfCurveCreateReq {
 
     private String schemeId;
 
-    @NotBlank(message = "productType 不能为空")
     private String productType;
 
-    @NotBlank(message = "commitmentType 不能为空")
     private String commitmentType;
 
     private Integer commitmentDaysMin;
 
     private Integer commitmentDaysMax;
 
+    @Min(value = 0, message = "daysMin 不能为负数")
     private Integer daysMin;
 
+    @Min(value = 0, message = "daysMax 不能为负数")
     private Integer daysMax;
 
     @NotNull(message = "ccfValue 不能为空")

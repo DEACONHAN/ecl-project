@@ -29,6 +29,9 @@ public class SchemeCopyService {
 
     @Transactional(rollbackFor = Exception.class)
     public void copyAll(String sourceSchemeId, String targetSchemeId) {
+        if (sourceSchemeId.equals(targetSchemeId)) {
+            throw new IllegalArgumentException("sourceSchemeId [" + sourceSchemeId + "] 与 targetSchemeId 相同，不允许自复制");
+        }
         // 1. 复制 risk_group：建立 oldGroupId → newGroupId 映射
         List<RiskGroupEntity> groups = riskGroupMapper.selectList(
                 new LambdaQueryWrapper<RiskGroupEntity>().eq(RiskGroupEntity::getSchemeId, sourceSchemeId));
