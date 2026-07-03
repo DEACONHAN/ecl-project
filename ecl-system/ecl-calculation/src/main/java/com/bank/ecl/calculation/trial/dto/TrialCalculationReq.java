@@ -54,6 +54,8 @@ public class TrialCalculationReq {
     private BigDecimal totalLimit;
     private String commitmentType;
     private Integer commitmentDays;
+    private BigDecimal amtFinancedCny;
+    private String facilityCd;
 
     /** 多借据模式：按客户维度跑批 */
     private List<AssetInputReq> assets;

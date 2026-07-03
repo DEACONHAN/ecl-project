@@ -31,6 +31,8 @@ public class AssetInputReq {
     private BigDecimal totalLimit;
     private String commitmentType;
     private Integer commitmentDays;
+    private BigDecimal amtFinancedCny;
+    private String facilityCd;
 
     public static AssetInputReq from(TrialCalculationReq req) {
         AssetInputReq r = new AssetInputReq();
@@ -55,6 +57,8 @@ public class AssetInputReq {
         r.setTotalLimit(req.getTotalLimit());
         r.setCommitmentType(req.getCommitmentType());
         r.setCommitmentDays(req.getCommitmentDays());
+        r.setAmtFinancedCny(req.getAmtFinancedCny());
+        r.setFacilityCd(req.getFacilityCd());
         return r;
     }
 }

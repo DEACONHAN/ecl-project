@@ -131,6 +131,7 @@ public class TrialCalculationService {
         if (req.getLastStage() != null) a.setLastStage(Stage.valueOf(req.getLastStage()));
         a.setOverdueDays(req.getOverdueDays());
         a.setCrrRating(req.getCrrRating());
+        a.setCrrFinal(req.getRatingCode());
         a.setFiveCategory(req.getFiveCategory());
         a.setDefaultFlag(req.getDefaultFlag());
         a.setMediaSentiment(req.getMediaSentiment());
@@ -143,6 +144,8 @@ public class TrialCalculationService {
         a.setTotalLimit(req.getTotalLimit());
         a.setCommitmentType(req.getCommitmentType());
         a.setCommitmentDays(req.getCommitmentDays());
+        a.setAmtFinancedCny(req.getAmtFinancedCny());
+        a.setFacilityCd(req.getFacilityCd());
         return a;
     }
 
