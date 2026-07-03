@@ -101,6 +101,16 @@ function parseConditions(jsonStr?: string): ConditionItem[] {
 }
 
 /** Serialize conditions → JSON string */
+function parseLogic(jsonStr?: string, defaultLogic: 'OR' | 'AND' = 'OR'): 'OR' | 'AND' {
+  if (!jsonStr) return defaultLogic;
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return parsed.logic || defaultLogic;
+  } catch {
+    return defaultLogic;
+  }
+}
+
 function serializeConditions(conditions: ConditionItem[], logic: 'OR' | 'AND'): string {
   return JSON.stringify({ logic, conditions });
 }
@@ -134,13 +144,13 @@ function conditionLabel(c: ConditionItem): string {
       return `五级分类 ${op} {${(c.values || []).join(', ')}}`;
     }
     case '违约标识':
-      return `违约标识 = ${c.value}`;
+      return `违约标识 = ${c.value || '是'}`;
     case 'CRR 评级下降':
-      return 'CRR 评级下降';
+      return `CRR 评级下降 = ${c.value || '是'}`;
     case '还款状态':
-      return `还款状态 = ${c.value}`;
+      return `还款状态 = ${c.value || '正常'}`;
     case '逾期状态':
-      return `逾期状态 = ${c.value}`;
+      return `逾期状态 = ${c.value || '已消除'}`;
     case '舆情事件':
       return `舆情事件: ${c.value || c.operator}`;
     default:
@@ -194,6 +204,7 @@ const StageConfig: React.FC = () => {
   // ─── Rule modal (step 1 — basic info) ───
   const [ruleModalOpen, setRuleModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<StageRuleVO | null>(null);
+  const [ruleFormType, setRuleFormType] = useState<'FORWARD' | 'ROLLBACK'>('FORWARD');
   const [ruleForm] = Form.useForm();
 
   // ─── Condition editor modal (step 2) ───
@@ -201,6 +212,7 @@ const StageConfig: React.FC = () => {
   const [editorRuleId, setEditorRuleId] = useState<string | null>(null);
   const [editorTabType, setEditorTabType] = useState<'forward' | 'rollback'>('forward');
   const [editorConditions, setEditorConditions] = useState<ConditionItem[]>([]);
+  const [editorLogic, setEditorLogic] = useState<'OR' | 'AND'>('OR');
 
   // ─── Copy rules modal ───
   const [copyModalOpen, setCopyModalOpen] = useState(false);
@@ -274,6 +286,7 @@ const StageConfig: React.FC = () => {
   const openRuleModal = (rule?: StageRuleVO) => {
     if (rule) {
       setEditingRule(rule);
+      setRuleFormType(rule.ruleType as 'FORWARD' | 'ROLLBACK');
       ruleForm.setFieldsValue({
         ruleType: rule.ruleType,
         priority: rule.priority,
@@ -356,13 +369,15 @@ const StageConfig: React.FC = () => {
     setEditorRuleId(rule.ruleId!);
     setEditorTabType(tabType);
     const parsed = parseConditions(rule.jsonCondition);
+    const savedLogic = parseLogic(rule.jsonCondition, tabType === 'forward' ? 'OR' : 'AND');
+    setEditorLogic(savedLogic);
     setEditorConditions(parsed.length > 0 ? parsed : [{ type: '逾期天数', operator: 'gte', value: '' }]);
     setEditorModalOpen(true);
   };
 
   const saveEditorConditions = async () => {
     if (!editorRuleId) return;
-    const logic = editorTabType === 'forward' ? 'OR' : 'AND';
+    const logic = editorLogic;
     const jsonStr = serializeConditions(editorConditions, logic);
 
     // Find the rule and update it
@@ -1026,7 +1041,7 @@ const StageConfig: React.FC = () => {
                                   <span key={i}>
                                     <span className="cond-chip">{conditionLabel(c)}</span>
                                     {i < conditions.length - 1 && (
-                                      <span className="cond-or">或</span>
+                                      <span className="cond-or">{parseLogic(r.jsonCondition, 'OR') === 'AND' ? '且' : '或'}</span>
                                     )}
                                   </span>
                                 ))}
@@ -1039,21 +1054,17 @@ const StageConfig: React.FC = () => {
                             )}
                           </td>
                           <td>
-                            {defaultRule ? (
-                              <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>只读</span>
-                            ) : (
-                              <>
-                                <button className="btn-text" onClick={() => openEditor(r)}>编辑</button>
-                                <button className="btn-text danger" onClick={() => handleDeleteRule(r)}>删除</button>
-                              </>
-                            )}
+                            <>
+                              <button className="btn-text" onClick={() => openEditor(r)}>编辑</button>
+                              <button className="btn-text danger" onClick={() => handleDeleteRule(r)}>删除</button>
+                            </>
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
                 </table>
-                <div className="info-note ecl-info-note">引擎按优先级逐条匹配，Stage 1 为兜底规则（只读）</div>
+                <div className="info-note ecl-info-note">引擎按优先级逐条匹配，Stage 1 为兜底规则（建议保留为无条件兜底）</div>
               </div>
             )}
 
@@ -1092,7 +1103,7 @@ const StageConfig: React.FC = () => {
                               <span key={i}>
                                 <span className="cond-chip">{conditionLabel(c)}</span>
                                 {i < conditions.length - 1 && (
-                                  <span className="cond-and">且</span>
+                                  <span className="cond-and">{parseLogic(r.jsonCondition, 'AND') === 'AND' ? '且' : '或'}</span>
                                 )}
                               </span>
                             ))}
@@ -1176,11 +1187,14 @@ const StageConfig: React.FC = () => {
         onCancel={() => {
           setRuleModalOpen(false);
           setEditingRule(null);
+          setRuleFormType('FORWARD');
           ruleForm.resetFields();
         }}
         okText={editingRule ? '保存' : '保存并配置条件'}
       >
-        <Form form={ruleForm} layout="vertical">
+        <Form form={ruleForm} layout="vertical" onValuesChange={(changed) => {
+                  if (changed.ruleType) setRuleFormType(changed.ruleType);
+                }}>
           <div className="form-row">
             <Form.Item name="ruleType" label="规则类型" rules={[{ required: true }]}>
               <Select
@@ -1195,17 +1209,19 @@ const StageConfig: React.FC = () => {
             </Form.Item>
           </div>
           <div className="form-row">
-            <Form.Item name="sourceStage" label="来源阶段">
-              <Select
-                allowClear
-                placeholder="（不适用）"
-                options={[
-                  { label: 'Stage 1', value: 'STAGE_1' },
-                  { label: 'Stage 2', value: 'STAGE_2' },
-                  { label: 'Stage 3', value: 'STAGE_3' },
-                ]}
-              />
-            </Form.Item>
+            {ruleFormType === 'ROLLBACK' ? (
+              <Form.Item name="sourceStage" label="来源阶段（回跳前阶段）" rules={[{ required: true, message: 'ROLLBACK 规则必须选择来源阶段' }]}>
+                <Select
+                  options={[
+                    { label: 'Stage 1', value: 'STAGE_1' },
+                    { label: 'Stage 2', value: 'STAGE_2' },
+                    { label: 'Stage 3', value: 'STAGE_3' },
+                  ]}
+                />
+              </Form.Item>
+            ) : (
+              <div style={{ flex: 1 }} />
+            )}
             <Form.Item name="targetStage" label="目标阶段" rules={[{ required: true }]}>
               <Select
                 options={[
@@ -1216,9 +1232,11 @@ const StageConfig: React.FC = () => {
               />
             </Form.Item>
           </div>
-          <Form.Item name="observationDays" label="观察期（天，ROLLBACK 时填写）">
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
+          {ruleFormType === 'ROLLBACK' && (
+            <Form.Item name="observationDays" label="观察期（天）" rules={[{ required: true, message: 'ROLLBACK 规则必须填写观察期' }]}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          )}
         </Form>
         {!editingRule && (
           <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: -8 }}>
@@ -1237,7 +1255,7 @@ const StageConfig: React.FC = () => {
             <span style={{ fontSize: 12, color: 'var(--color-text-muted)', marginLeft: 12, fontWeight: 400 }}>
               {groups.find((g) => g.groupId === selectedGroupId)?.groupName || ''}
               {' · '}
-              {editorTabType === 'forward' ? '任一满足 (OR)' : '全部满足 (AND)'}
+              {editorLogic === 'OR' ? '任一满足 (OR)' : '全部满足 (AND)'}
             </span>
           </div>
         }
@@ -1251,7 +1269,26 @@ const StageConfig: React.FC = () => {
           <div>
             <div className="cond-editor">
               <div className="ce-header">
-                <span>条件列表 · 逻辑：{editorTabType === 'forward' ? '任一满足 (OR)' : '全部满足 (AND)'}</span>
+                <span>条件列表 · 逻辑：{editorLogic === 'OR' ? '任一满足 (OR)' : '全部满足 (AND)'}</span>
+                {/*
+                  逻辑说明：
+                  - 所有条件之间使用同一逻辑（简单模式）
+                  - OR：任一条件满足即命中规则
+                  - AND：全部条件满足才命中规则
+                  - 如需混合逻辑如 (A 且 B) 或 C，请拆为多条规则，每条规则内选 AND 或 OR 即可
+                */}
+                <div className="logic-toggle" style={{ display: 'inline-flex', gap: 4, marginLeft: 12 }}>
+                  <button
+                    className={`btn-tag ${editorLogic === 'OR' ? 'active' : ''}`}
+                    onClick={() => setEditorLogic('OR')}
+                    style={{ padding: '2px 10px', fontSize: 11, cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: 4, background: editorLogic === 'OR' ? '#2563eb' : '#fff', color: editorLogic === 'OR' ? '#fff' : '#374151' }}
+                  >OR（任一满足）</button>
+                  <button
+                    className={`btn-tag ${editorLogic === 'AND' ? 'active' : ''}`}
+                    onClick={() => setEditorLogic('AND')}
+                    style={{ padding: '2px 10px', fontSize: 11, cursor: 'pointer', border: '1px solid #d1d5db', borderRadius: 4, background: editorLogic === 'AND' ? '#2563eb' : '#fff', color: editorLogic === 'AND' ? '#fff' : '#374151' }}
+                  >AND（全部满足）</button>
+                </div>
                 <button className="btn-text" onClick={() => setEditorConditions([...editorConditions, { type: '逾期天数', operator: 'gte', value: '' }])}>
                   ＋ 添加条件
                 </button>
@@ -1265,7 +1302,7 @@ const StageConfig: React.FC = () => {
                         value={c.type}
                         onChange={(e) => {
                           const updated = [...editorConditions];
-                          updated[i] = { type: e.target.value, operator: 'eq', value: '' };
+                          updated[i] = { type: e.target.value, operator: 'eq', value: e.target.value === '违约标识' || e.target.value === 'CRR 评级下降' ? '是' : e.target.value === '还款状态' ? '正常' : e.target.value === '逾期状态' ? '已消除' : '' };
                           setEditorConditions(updated);
                         }}
                       >
@@ -1486,7 +1523,7 @@ const StageConfig: React.FC = () => {
                     </div>
                     {i < editorConditions.length - 1 && (
                       <div className="or-divider">
-                        <span>{editorTabType === 'forward' ? '或' : '且'}</span>
+                        <span>{editorLogic === 'OR' ? '或' : '且'}</span>
                       </div>
                     )}
                   </React.Fragment>
@@ -1515,7 +1552,7 @@ const StageConfig: React.FC = () => {
               }}>
                 {JSON.stringify(
                   {
-                    logic: editorTabType === 'forward' ? 'OR' : 'AND',
+                    logic: editorLogic,
                     conditions: editorConditions.map((c) => {
                       const obj: any = { type: c.type };
                       if (c.type === '逾期天数') { obj.operator = c.operator; obj.value = parseInt(String(c.value)) || 0; }

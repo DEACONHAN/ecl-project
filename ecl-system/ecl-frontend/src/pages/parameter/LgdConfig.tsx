@@ -18,6 +18,7 @@ import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { schemeApi, type SchemeVO } from '../../api/scheme';
 import { riskGroupApi, type RiskGroupVO } from '../../api/riskGroup';
 import { lgdApi, type LgdCurveVO, type LgdCollateralDiscountVO, type LgdDepreciationVO } from '../../api/lgd';
+import { dictApi, type DictEntryVO } from '../../api/dict';
 import { PageHeader, Panel, GroupSelector } from '../../components';
 
 /* ===================================================================
@@ -33,6 +34,8 @@ const BenchmarkCurveTab: React.FC<{
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LgdCurveVO | null>(null);
   const [form] = Form.useForm();
+  const [dictCollateral, setDictCollateral] = useState<DictEntryVO[]>([]);
+  const [dictProductType, setDictProductType] = useState<DictEntryVO[]>([]);
 
   useEffect(() => {
     if (!selectedSchemeId) {
@@ -43,8 +46,22 @@ const BenchmarkCurveTab: React.FC<{
     riskGroupApi.listByScheme(selectedSchemeId).then((res) => {
       setGroups((res.data as any)?.data || res.data || []);
     });
+    loadDictOptions(selectedSchemeId);
     setSelectedGroupId('');
   }, [selectedSchemeId]);
+
+  const loadDictOptions = useCallback(async (schemeId: string) => {
+    try {
+      const [colRes, prodRes] = await Promise.all([
+        dictApi.getEffectiveEntries(schemeId, 'COLLATERAL_TYPE'),
+        dictApi.getEffectiveEntries(schemeId, 'PRODUCT_TYPE'),
+      ]);
+      setDictCollateral((colRes.data as any)?.data || colRes.data || []);
+      setDictProductType((prodRes.data as any)?.data || prodRes.data || []);
+    } catch (err) {
+      console.error('加载字典选项失败', err);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!selectedSchemeId || !selectedGroupId) {
@@ -203,7 +220,7 @@ const BenchmarkCurveTab: React.FC<{
         <thead>
           <tr>
             <th>担保类型</th>
-            <th>产品类型</th>
+            <th>产品类型<br/><span style={{fontSize:10,fontWeight:400,color:'#999'}}>空=全集</span></th>
             <th>LGD 基准值</th>
             <th style={{ width: 120 }}>操作</th>
           </tr>
@@ -212,7 +229,7 @@ const BenchmarkCurveTab: React.FC<{
           {curves.map((c) => (
             <tr key={c.curveId}>
               <td>{c.collateralType}</td>
-              <td>{c.productType}</td>
+              <td>{c.productType || <span style={{ color: 'var(--color-text-muted)' }}>全集 *</span>}</td>
               <td>{(c.lgdBaseValue * 100).toFixed(4)}%</td>
               <td>
                 <Space>
@@ -239,11 +256,13 @@ const BenchmarkCurveTab: React.FC<{
         onCancel={() => { setModalOpen(false); form.resetFields(); }}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="collateralType" label="担保类型" rules={[{ required: true, message: '请输入担保类型' }]}>
-            <Input placeholder="如：MORTGAGE, PLEDGE" />
+          <Form.Item name="collateralType" label="担保类型" rules={[{ required: true, message: '请选择担保类型' }]}>
+            <Select placeholder="请选择担保类型" allowClear showSearch
+              options={dictCollateral.map(e => ({ label: `${e.entryName} (${e.entryCode})`, value: e.entryCode }))} />
           </Form.Item>
-          <Form.Item name="productType" label="产品类型" rules={[{ required: true, message: '请输入产品类型' }]}>
-            <Input placeholder="如：LOAN, BOND" />
+          <Form.Item name="productType" label="产品类型">
+            <Select placeholder="为空=全集（不限制）" allowClear showSearch
+              options={dictProductType.map(e => ({ label: `${e.entryName} (${e.entryCode})`, value: e.entryCode }))} />
           </Form.Item>
           <Form.Item name="lgdBaseValue" label="LGD 基准值" rules={[
             { required: true, message: '请输入 LGD 基准值' },
@@ -268,6 +287,21 @@ const CollateralDiscountTab: React.FC<{
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<LgdCollateralDiscountVO | null>(null);
   const [form] = Form.useForm();
+  const [dictCollateral, setDictCollateral] = useState<DictEntryVO[]>([]);
+  const [dictProductType, setDictProductType] = useState<DictEntryVO[]>([]);
+
+  const loadDictOptions = useCallback(async (schemeId: string) => {
+    try {
+      const [colRes, prodRes] = await Promise.all([
+        dictApi.getEffectiveEntries(schemeId, 'COLLATERAL_TYPE'),
+        dictApi.getEffectiveEntries(schemeId, 'PRODUCT_TYPE'),
+      ]);
+      setDictCollateral((colRes.data as any)?.data || colRes.data || []);
+      setDictProductType((prodRes.data as any)?.data || prodRes.data || []);
+    } catch (err) {
+      console.error('加载字典选项失败', err);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!selectedSchemeId) return;
