@@ -44,6 +44,13 @@ public class TrialCalculationService {
             throw new EclException(ErrorCode.ECL_004, "方案不存在: " + req.getSchemeId());
         }
 
+        // 校验：非多笔模式时必须传入 assetId
+        if ((req.getAssets() == null || req.getAssets().isEmpty())
+                && (req.getLoans() == null || req.getLoans().isEmpty())
+                && (req.getAssetId() == null || req.getAssetId().isBlank())) {
+            throw new EclException(ErrorCode.ECL_006, "参数校验失败: 单笔模式必须传入 assetId");
+        }
+
         LocalDate calcDate = req.getCalcDate() != null ? req.getCalcDate() : LocalDate.now();
         long start = System.currentTimeMillis();
 
@@ -139,6 +146,7 @@ public class TrialCalculationService {
         a.setRatingCode(req.getRatingCode());
         a.setMaturityDate(req.getMaturityDate());
         a.setCalcDate(calcDate);
+        a.setBusinessType(req.getBusinessType());
         a.setOutstandingBalance(req.getOutstandingBalance());
         a.setAccruedInterest(req.getAccruedInterest());
         a.setTotalLimit(req.getTotalLimit());

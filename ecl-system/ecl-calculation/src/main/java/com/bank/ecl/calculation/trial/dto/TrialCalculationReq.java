@@ -14,7 +14,6 @@ public class TrialCalculationReq {
     @NotBlank(message = "schemeId 不能为空")
     private String schemeId;
 
-    @NotBlank(message = "assetId 不能为空")
     private String assetId;
 
     private LocalDate calcDate;
@@ -49,6 +48,8 @@ public class TrialCalculationReq {
     private LocalDate maturityDate;
 
     // === 6.4 EAD 入参 ===
+    /** 业务类型：ON_BS（表内）/ OFF_BS（表外） */
+    private String businessType;
     private BigDecimal outstandingBalance;
     private BigDecimal accruedInterest;
     private BigDecimal totalLimit;
