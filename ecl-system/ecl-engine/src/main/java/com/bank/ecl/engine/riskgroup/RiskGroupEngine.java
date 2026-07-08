@@ -85,6 +85,7 @@ public class RiskGroupEngine implements EclEngine {
                 RiskGroupEntity group = groupMap.get(groupId);
                 if (group != null) {
                     asset.setGroupName(group.getGroupName());
+                    asset.setGroupCode(group.getGroupCode());
                 }
             }
         }

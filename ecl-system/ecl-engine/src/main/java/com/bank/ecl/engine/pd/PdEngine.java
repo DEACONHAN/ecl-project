@@ -134,8 +134,7 @@ public class PdEngine implements EclEngine {
     private record RatingSelection(String ratingAgency, String ratingCode) {}
 
     private RatingSelection resolveRatingSource(AssetInput asset) {
-        String groupId = asset.getGroupId();
-        if (Set.of("GRP_003", "GRP_004").contains(groupId)) {
+        if (Set.of("GRP_003", "GRP_004").contains(asset.getGroupCode())) {
             return new RatingSelection(
                     asset.getExtRatingCoThisYear(),
                     asset.getExtRatingThisYear());
