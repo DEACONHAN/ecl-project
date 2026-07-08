@@ -134,11 +134,14 @@ public class PdEngine implements EclEngine {
     private record RatingSelection(String ratingAgency, String ratingCode) {}
 
     private RatingSelection resolveRatingSource(AssetInput asset) {
-        if (Set.of("GRP_003", "GRP_004").contains(asset.getGroupCode())) {
-            return new RatingSelection(
-                    asset.getExtRatingCoThisYear(),
-                    asset.getExtRatingThisYear());
+        // 优先使用外部评级（如果有数据）
+        String extAgency = asset.getExtRatingCoThisYear();
+        String extRating = asset.getExtRatingThisYear();
+        if (extAgency != null && !extAgency.isBlank()
+                && extRating != null && !extRating.isBlank()) {
+            return new RatingSelection(extAgency, extRating);
         }
+        // 默认使用内部评级
         return new RatingSelection(
                 "INTERNAL_CRR",
                 asset.getCrrFinal());
