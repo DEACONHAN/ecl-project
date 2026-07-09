@@ -125,7 +125,7 @@
 - [x] 所有参数数据已完整复制（EFFECTIVE方案无参数时 = 0项，复制API通过）  
 - [x] 复制后源方案状态不变  
 
-> **验证结果**: ✅ 通过（2026-07-02）— 实际API路径为 `/copy`，参数通过 `schemeId` query + request body 传参均可  
+> **验证结果**: ✅ 通过（2026-07-02）— 实际API路径为 `/copy`，参数通过 `schemeId` query + request body 传参均可；⚠️ 2026-07-09 补充：当时测试用的方案无参数数据（0项），未覆盖到"含GLOBAL类型叠加规则"的场景。2026-07-09 用有完整114项配置的方案复制时实测发现 500 错误（GLOBAL规则group_id为空字符串，复制逻辑误查groupIdMapping得到null，撞NOT NULL约束），已定位修复，见"修复记录"，复测通过（`/copy` 成功生成SCH_003，各项计数与源方案一致）
 
 ---
 
@@ -1630,7 +1630,7 @@ EAD 合计 351750（loanBalCny），LGD 下限 0.1，未覆盖部分按 GRP_CORP
 | defaultFlag | `defaultFlag=True` 传入后引擎判定图中显示「违约标识: 否」 | TC-10 | 🟡 中 — 字段解析问题 |
 | 认证鉴权 | 系统无认证机制，所有API无需token即可访问 | IC-06 | 🟡 中 — 安全需求 |
 | 叠加规则 | `effectiveDate` 不传时后端默认取服务器当前日期(`LocalDate.now()`)，而非"无起始限制"；导致文档中标注"无日期限制"的全局/兜底规则(OV-01/02/05/06)在计量日早于建库当天时不生效，命中数为0——系统默认值语义设计问题，需评估是否改代码（如默认取极早日期而非"今天"） | 影响任何 calcDate 早于建库当天的试算，OV类全局规则场景 | 🟡 中 — 系统默认值语义与业务预期不符 |
-| 方案对比 | `compareSchemes()` 的差异对比只是**数量对比**（`changedItems = abs(count1-count2)`, `same = count1==count2`），不是逐字段比对内容；两个方案若某模块行数相同但具体数值（如PD曲线的pdValue）不同，会被误判为"无差异"。**非bug**（接口行为符合其实现逻辑，未报错未算错），是功能命名与实际能力不符——"对比"容易被理解为逐项比对，需要用的人了解这个局限 | TC-27，任何依赖此接口做方案审核/差异复核的场景 | 🟢 低 — 设计局限，非缺陷，建议后续如需精确对比需重新设计 |
+| 方案对比 | `compareSchemes()` 的差异对比只是**数量对比**（`changedItems = abs(count1-count2)`, `same = count1==count2`），不是逐字段比对内容；两个方案若某模块行数相同但具体数值（如PD曲线的pdValue）不同，会被误判为"无差异"。**非bug**（接口行为符合其实现逻辑，未报错未算错），是功能命名与实际能力不符——"对比"容易被理解为逐项比对，需要用的人了解这个局限。**2026-07-09 实测证实**：用 `/copy` 复制出一个与源方案完全一致的副本（SCH_003），先对比确认6模块 changedItems=0/一致；再只改副本中2条PD曲线的 `pdValue`（不增删行），重新对比——PD模块仍显示 changedItems=0/一致，**未能反映这2处真实差异**，坐实此局限 | TC-27，任何依赖此接口做方案审核/差异复核的场景 | 🟢 低 — 设计局限，非缺陷，建议后续如需精确对比需重新设计 |
 
 > 📌 2026-07-09 更新：因本地环境从 origin/main 重新拉取代码并重建 Colima 虚拟机，数据库方案数据已按 `完整减值方案.md` 重新生成（新 schemeId `f25c01ef0bf5488ea1066164a669334a`）。以上"风险分组/阶段规则/PD曲线"三条 🔴 高优先级问题已重新验证：**均已解决**——TC-01~TC-22 全链路（风险分组4维匹配、阶段判定含CRR下降、PD情景加权、EAD表内外敞口、LGD精确匹配/回退/抵押池、ECL加权、Overlay多规则竞争）在新数据集下逐条测试全部通过，详见各用例"验证结果"。
 >
@@ -1674,6 +1674,7 @@ PC-SR-01~07、PC-PD-01/03/04(前端展示)、PC-LGD-01~03、PC-CCF-01、PC-OL-01
 | 2026-07-09 | `5fd4500` | `PdEngine.resolveRatingSource()` 改为按资产是否填充外部评级字段（`extRatingThisYear`非空）动态判断走内评/外评路径，移除硬编码比较 groupId 是否等于字符串"GRP_003"/"GRP_004"（实际groupId是UUID，永不匹配，外部评级路径此前实质不可达） | TC-PD-04 |
 | 2026-07-09 | 数据修正(非代码) | `tbl_overlay_rule` rule_id=4 (OV-04) 的 conditions 由 `{"industry_codes":["K","L"]}`（复数裸数组，引擎无法解析）改为 `{"industry_code":{"in":["K","L"]}}`（引擎认可的单数+in包装格式），同步更正 `完整减值方案.md` 7.2节示例 | TC-22/TC-23 |
 | 2026-07-09 | `9e58850` | 前端 `SchemeDiffVO` 类型字段（`field`/`oldValue`/`newValue`）与后端实际返回字段（`module`/`versionFrom`/`versionTo`/`changedItems`/`same`）完全对不上，导致"方案对比"页面模块名称/差异值全部显示空白，且"是否一致"恒判定为一致（因为两个`undefined`比较永远相等），与方案是否真的有差异无关。修正 `api/scheme.ts` 类型定义 + `SchemeCompare.tsx` 表格列映射，改为展示 模块名称/方案1版本/方案2版本/差异项数，"是否一致"读后端 `same` 字段 | TC-27（用户手动测试时发现） |
+| 2026-07-09 | `<PENDING>` | `SchemeCopyService.copyAll()` 复制"管理层叠加"规则时，无条件用 `groupIdMapping.get(o.getGroupId())` 重映射 group_id；但 GLOBAL 类型规则的 group_id 在库里存的是空字符串（代表"全局"），不在 `groupIdMapping`（只含真实分组ID的映射）里，`get("")` 返回 `null`，而 `tbl_overlay_rule.group_id` 是 NOT NULL 列，插入直接抛 SQLException，导致任何含全局叠加规则的方案调用"方案复制"(`/copy`)接口 500 报错。修正为：仅当 groupId 非空白时才查映射表重映射，GLOBAL规则的空字符串原样保留 | TC-26（用户请求生成对比测试数据时发现，阻塞了方案对比的手动实验） |
 
 ---
 

@@ -141,7 +141,11 @@ public class SchemeCopyService {
         for (OverlayRuleEntity o : overlays) {
             o.setRuleId(null);
             o.setSchemeId(targetSchemeId);
-            o.setGroupId(groupIdMapping.get(o.getGroupId()));
+            // GLOBAL 规则的 groupId 是空字符串（非真实分组ID），不应查 groupIdMapping（会得到null，
+            // 而 group_id 列是 NOT NULL），原样保留；只有非空的分组级规则才需要重映射到新分组ID。
+            if (o.getGroupId() != null && !o.getGroupId().isBlank()) {
+                o.setGroupId(groupIdMapping.get(o.getGroupId()));
+            }
             overlayRuleMapper.insert(o);
         }
     }
