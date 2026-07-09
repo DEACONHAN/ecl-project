@@ -1674,7 +1674,7 @@ PC-SR-01~07、PC-PD-01/03/04(前端展示)、PC-LGD-01~03、PC-CCF-01、PC-OL-01
 | 2026-07-09 | `5fd4500` | `PdEngine.resolveRatingSource()` 改为按资产是否填充外部评级字段（`extRatingThisYear`非空）动态判断走内评/外评路径，移除硬编码比较 groupId 是否等于字符串"GRP_003"/"GRP_004"（实际groupId是UUID，永不匹配，外部评级路径此前实质不可达） | TC-PD-04 |
 | 2026-07-09 | 数据修正(非代码) | `tbl_overlay_rule` rule_id=4 (OV-04) 的 conditions 由 `{"industry_codes":["K","L"]}`（复数裸数组，引擎无法解析）改为 `{"industry_code":{"in":["K","L"]}}`（引擎认可的单数+in包装格式），同步更正 `完整减值方案.md` 7.2节示例 | TC-22/TC-23 |
 | 2026-07-09 | `9e58850` | 前端 `SchemeDiffVO` 类型字段（`field`/`oldValue`/`newValue`）与后端实际返回字段（`module`/`versionFrom`/`versionTo`/`changedItems`/`same`）完全对不上，导致"方案对比"页面模块名称/差异值全部显示空白，且"是否一致"恒判定为一致（因为两个`undefined`比较永远相等），与方案是否真的有差异无关。修正 `api/scheme.ts` 类型定义 + `SchemeCompare.tsx` 表格列映射，改为展示 模块名称/方案1版本/方案2版本/差异项数，"是否一致"读后端 `same` 字段 | TC-27（用户手动测试时发现） |
-| 2026-07-09 | `<PENDING>` | `SchemeCopyService.copyAll()` 复制"管理层叠加"规则时，无条件用 `groupIdMapping.get(o.getGroupId())` 重映射 group_id；但 GLOBAL 类型规则的 group_id 在库里存的是空字符串（代表"全局"），不在 `groupIdMapping`（只含真实分组ID的映射）里，`get("")` 返回 `null`，而 `tbl_overlay_rule.group_id` 是 NOT NULL 列，插入直接抛 SQLException，导致任何含全局叠加规则的方案调用"方案复制"(`/copy`)接口 500 报错。修正为：仅当 groupId 非空白时才查映射表重映射，GLOBAL规则的空字符串原样保留 | TC-26（用户请求生成对比测试数据时发现，阻塞了方案对比的手动实验） |
+| 2026-07-09 | `174baaf` | `SchemeCopyService.copyAll()` 复制"管理层叠加"规则时，无条件用 `groupIdMapping.get(o.getGroupId())` 重映射 group_id；但 GLOBAL 类型规则的 group_id 在库里存的是空字符串（代表"全局"），不在 `groupIdMapping`（只含真实分组ID的映射）里，`get("")` 返回 `null`，而 `tbl_overlay_rule.group_id` 是 NOT NULL 列，插入直接抛 SQLException，导致任何含全局叠加规则的方案调用"方案复制"(`/copy`)接口 500 报错。修正为：仅当 groupId 非空白时才查映射表重映射，GLOBAL规则的空字符串原样保留 | TC-26（用户请求生成对比测试数据时发现，阻塞了方案对比的手动实验） |
 
 ---
 
