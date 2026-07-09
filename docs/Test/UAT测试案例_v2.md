@@ -1671,7 +1671,7 @@ PC-SR-01~07、PC-PD-01/03/04(前端展示)、PC-LGD-01~03、PC-CCF-01、PC-OL-01
 | 2026-07-02 | `0c71dff` | PD曲线scenarioCode映射 + LGD折旧率正值校验 | PC-13/PC-17 |
 | 2026-07-02 | `bb10ecb` | 风险分组引擎通配符*支持 | TC-01~TC-03 |
 | 2026-07-02 | `7deeec5` | 阶段判定引擎范围操作符+CRR_DROP规则纳入 | TC-04~TC-10 |
-| 2026-07-09 | `<PENDING>` | `PdEngine.resolveRatingSource()` 改为按资产是否填充外部评级字段（`extRatingThisYear`非空）动态判断走内评/外评路径，移除硬编码比较 groupId 是否等于字符串"GRP_003"/"GRP_004"（实际groupId是UUID，永不匹配，外部评级路径此前实质不可达） | TC-PD-04 |
+| 2026-07-09 | `5fd4500` | `PdEngine.resolveRatingSource()` 改为按资产是否填充外部评级字段（`extRatingThisYear`非空）动态判断走内评/外评路径，移除硬编码比较 groupId 是否等于字符串"GRP_003"/"GRP_004"（实际groupId是UUID，永不匹配，外部评级路径此前实质不可达） | TC-PD-04 |
 | 2026-07-09 | 数据修正(非代码) | `tbl_overlay_rule` rule_id=4 (OV-04) 的 conditions 由 `{"industry_codes":["K","L"]}`（复数裸数组，引擎无法解析）改为 `{"industry_code":{"in":["K","L"]}}`（引擎认可的单数+in包装格式），同步更正 `完整减值方案.md` 7.2节示例 | TC-22/TC-23 |
 
 ---
