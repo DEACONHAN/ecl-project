@@ -23,9 +23,11 @@ export interface SchemeVO {
 }
 
 export interface SchemeDiffVO {
-  field: string;
-  oldValue: string;
-  newValue: string;
+  module: string;
+  versionFrom: string;
+  versionTo: string;
+  changedItems: number;
+  same: boolean;
 }
 
 export const schemeApi = {
