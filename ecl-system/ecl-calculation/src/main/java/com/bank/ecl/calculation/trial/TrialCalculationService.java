@@ -44,6 +44,13 @@ public class TrialCalculationService {
             throw new EclException(ErrorCode.ECL_004, "方案不存在: " + req.getSchemeId());
         }
 
+        // 校验：非多笔模式时必须传入 assetId
+        if ((req.getAssets() == null || req.getAssets().isEmpty())
+                && (req.getLoans() == null || req.getLoans().isEmpty())
+                && (req.getAssetId() == null || req.getAssetId().isBlank())) {
+            throw new EclException(ErrorCode.ECL_006, "参数校验失败: 单笔模式必须传入 assetId");
+        }
+
         LocalDate calcDate = req.getCalcDate() != null ? req.getCalcDate() : LocalDate.now();
         long start = System.currentTimeMillis();
 
@@ -52,7 +59,7 @@ public class TrialCalculationService {
         List<AssetInput> assets;
         if (req.getLoans() != null && !req.getLoans().isEmpty()) {
             ctx = trialSourceAssembler.assemble(jobId, scheme.getSchemeId(), calcDate, req,
-                    scheme.getDiscountRate() != null ? scheme.getDiscountRate().doubleValue() : 0.05,
+                    normalizeDiscountRate(scheme.getDiscountRate()),
                     scheme.getDefaultCcf() != null ? scheme.getDefaultCcf().doubleValue() : 0.0,
                     scheme.getDefaultLgd() != null ? scheme.getDefaultLgd().doubleValue() : 0.45,
                     0.1);
@@ -139,6 +146,7 @@ public class TrialCalculationService {
         a.setRatingCode(req.getRatingCode());
         a.setMaturityDate(req.getMaturityDate());
         a.setCalcDate(calcDate);
+        a.setBusinessType(req.getBusinessType());
         a.setOutstandingBalance(req.getOutstandingBalance());
         a.setAccruedInterest(req.getAccruedInterest());
         a.setTotalLimit(req.getTotalLimit());
@@ -155,11 +163,22 @@ public class TrialCalculationService {
         ctx.setSchemeId(scheme.getSchemeId());
         ctx.setCalcDate(calcDate);
         ctx.setTrialMode(true);
-        ctx.setDiscountRate(scheme.getDiscountRate() != null ? scheme.getDiscountRate().doubleValue() : 0.05);
+        ctx.setDiscountRate(normalizeDiscountRate(scheme.getDiscountRate()));
         ctx.setDefaultCcf(scheme.getDefaultCcf() != null ? scheme.getDefaultCcf().doubleValue() : 0.0);
         ctx.setDefaultLgd(scheme.getDefaultLgd() != null ? scheme.getDefaultLgd().doubleValue() : 0.45);
         ctx.setLgdFloor(0.1);
         return ctx;
+    }
+
+    /**
+     * 兼容百分比和小数两种存储格式的折现率。
+     * 数据库可能存 5.0（表示5%）或 0.05（已转为小数），
+     * 统一归一化为小数。
+     */
+    private double normalizeDiscountRate(BigDecimal rate) {
+        if (rate == null) return 0.05;
+        double val = rate.doubleValue();
+        return val > 1 ? val / 100.0 : val;
     }
 
     AssetResult buildAssetResult(AssetInput a, String schemeId) {

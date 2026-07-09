@@ -103,6 +103,8 @@ public class AssetInput {
     /** 匹配到的分组 ID */
     private String groupId;
 
+    /** 分组编码（如 GRP_002、GRP_003） */
+    private String groupCode;
     /** 分组名称 */
     private String groupName;
 

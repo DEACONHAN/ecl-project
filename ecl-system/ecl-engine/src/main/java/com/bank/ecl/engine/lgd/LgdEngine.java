@@ -165,7 +165,13 @@ public class LgdEngine implements EclEngine {
             lgd = cache.get(noneKey);
         }
 
-        // 3. scheme default
+        // 3. Fallback: 忽略 productType（兼容曲线中 productType 为空串的情况）
+        if (lgd == null && collType != null) {
+            String fallbackKey = groupId + "|" + collType + "|";
+            lgd = cache.get(fallbackKey);
+        }
+
+        // 4. scheme default
         if (lgd == null) {
             lgd = defaultLgd;
             a.setLgdException("WARN");
