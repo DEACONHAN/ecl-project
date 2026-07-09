@@ -1673,7 +1673,7 @@ PC-SR-01~07、PC-PD-01/03/04(前端展示)、PC-LGD-01~03、PC-CCF-01、PC-OL-01
 | 2026-07-02 | `7deeec5` | 阶段判定引擎范围操作符+CRR_DROP规则纳入 | TC-04~TC-10 |
 | 2026-07-09 | `5fd4500` | `PdEngine.resolveRatingSource()` 改为按资产是否填充外部评级字段（`extRatingThisYear`非空）动态判断走内评/外评路径，移除硬编码比较 groupId 是否等于字符串"GRP_003"/"GRP_004"（实际groupId是UUID，永不匹配，外部评级路径此前实质不可达） | TC-PD-04 |
 | 2026-07-09 | 数据修正(非代码) | `tbl_overlay_rule` rule_id=4 (OV-04) 的 conditions 由 `{"industry_codes":["K","L"]}`（复数裸数组，引擎无法解析）改为 `{"industry_code":{"in":["K","L"]}}`（引擎认可的单数+in包装格式），同步更正 `完整减值方案.md` 7.2节示例 | TC-22/TC-23 |
-| 2026-07-09 | `<PENDING>` | 前端 `SchemeDiffVO` 类型字段（`field`/`oldValue`/`newValue`）与后端实际返回字段（`module`/`versionFrom`/`versionTo`/`changedItems`/`same`）完全对不上，导致"方案对比"页面模块名称/差异值全部显示空白，且"是否一致"恒判定为一致（因为两个`undefined`比较永远相等），与方案是否真的有差异无关。修正 `api/scheme.ts` 类型定义 + `SchemeCompare.tsx` 表格列映射，改为展示 模块名称/方案1版本/方案2版本/差异项数，"是否一致"读后端 `same` 字段 | TC-27（用户手动测试时发现） |
+| 2026-07-09 | `9e58850` | 前端 `SchemeDiffVO` 类型字段（`field`/`oldValue`/`newValue`）与后端实际返回字段（`module`/`versionFrom`/`versionTo`/`changedItems`/`same`）完全对不上，导致"方案对比"页面模块名称/差异值全部显示空白，且"是否一致"恒判定为一致（因为两个`undefined`比较永远相等），与方案是否真的有差异无关。修正 `api/scheme.ts` 类型定义 + `SchemeCompare.tsx` 表格列映射，改为展示 模块名称/方案1版本/方案2版本/差异项数，"是否一致"读后端 `same` 字段 | TC-27（用户手动测试时发现） |
 
 ---
 
