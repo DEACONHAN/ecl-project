@@ -46,10 +46,25 @@ public class OverlayEngine implements EclEngine {
 
         LocalDate calcDate = ctx.getCalcDate();
 
+        // 预计算同批次 EAD 均值（用于 EAD均值比 条件匹配）
+        double totalEadSum = 0;
+        int assetCount = 0;
         for (CustomerContext c : customers) {
             if (c == null || c.getAssets() == null) continue;
             for (AssetInput a : c.getAssets()) {
                 if (a == null) continue;
+                totalEadSum += a.getTotalEad();
+                assetCount++;
+            }
+        }
+        double batchEadAvg = assetCount > 0 ? totalEadSum / assetCount : 0;
+        log.info("[6.7 Overlay] batchEadAvg={} (count={}, sum={})", batchEadAvg, assetCount, totalEadSum);
+
+        for (CustomerContext c : customers) {
+            if (c == null || c.getAssets() == null) continue;
+            for (AssetInput a : c.getAssets()) {
+                if (a == null) continue;
+                a.setBatchEadAvg(batchEadAvg);
                 processAsset(a, rulesByGroup, calcDate);
             }
         }

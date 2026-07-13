@@ -201,6 +201,15 @@ public class StageConditionEvaluator {
             case "舆情事件" -> evaluateTextEvidence(asset.getOtherRiskInfo(), value)
                     || evaluateTextEvidence(asset.getMediaSentiment(), value);
             case "行业代码" -> evaluateEditorIn(asset.getIndustryCode(), operator, condition.get("values"));
+            case "产品类型" -> {
+                if ("in".equals(operator) || "not_in".equals(operator)) {
+                    yield evaluateEditorIn(asset.getProductType(), operator, condition.get("values"));
+                }
+                yield evaluateStringEquals(asset.getProductType(), operator, condition.get("value"));
+            }
+            case "客户名称" -> evaluateTextEvidence(asset.getCustomerName(), value);
+            case "客户名称列表" -> evaluateEditorIn(asset.getCustomerName(), operator, condition.get("values"));
+            case "EAD均值比" -> compareDouble(asset.getTotalEad(), asset.getBatchEadAvg(), operator, value);
             default -> {
                 log.warn("[StageCondition] unknown type='{}' operator='{}' value='{}' assetId={}",
                         type, operator, value, asset.getAssetId());
@@ -225,6 +234,27 @@ public class StageConditionEvaluator {
             case "gte" -> actual >= expected;
             default -> false;
         };
+    }
+
+    private static boolean compareDouble(double actual, double batchAvg, String operator, Object expectedValue) {
+        if (expectedValue == null) return false;
+        double ratio = batchAvg > 0 ? actual / batchAvg : 0;
+        double expected = toDouble(expectedValue);
+        return switch (operator) {
+            case "gt" -> ratio > expected;
+            case "gte" -> ratio >= expected;
+            case "lt" -> ratio < expected;
+            case "lte" -> ratio <= expected;
+            case "eq" -> Math.abs(ratio - expected) < 0.0001;
+            default -> false;
+        };
+    }
+
+    private static boolean evaluateStringEquals(String actual, String operator, Object expectedValue) {
+        if (actual == null || expectedValue == null) return false;
+        if ("eq".equals(operator)) return actual.equals(expectedValue.toString());
+        if ("ne".equals(operator)) return !actual.equals(expectedValue.toString());
+        return false;
     }
 
     private static boolean evaluateRangeCondition(Integer actual, Map<String, Object> condition) {
@@ -530,6 +560,12 @@ public class StageConditionEvaluator {
             }
         }
         return result.toString();
+    }
+
+    private static double toDouble(Object value) {
+        if (value instanceof Number n) return n.doubleValue();
+        try { return Double.parseDouble(value.toString()); }
+        catch (NumberFormatException e) { return 0.0; }
     }
 
     private static int toInt(Object value) {

@@ -49,7 +49,11 @@ public class ConditionEvaluator {
             Map.entry("担保方式", "guaranteeType"),
             Map.entry("资产状态", "assetStatus"),
             Map.entry("行业分类", "industry"),
-            Map.entry("CRR评级", "crrRating")
+            Map.entry("CRR评级", "crrRating"),
+            Map.entry("客户名称", "customerName"),
+            Map.entry("产品类型", "productType"),
+            Map.entry("客户名称列表", "customerName"),
+            Map.entry("EAD均值比", "eadAvg")
     );
 
     private ConditionEvaluator() {
@@ -200,8 +204,7 @@ public class ConditionEvaluator {
             return true;
         }
 
-        // 舆情事件
-        if ("contains".equals(operator) && type.equals("舆情事件")) {
+        if ("contains".equals(operator)) {
             return str(fieldValue).contains(str(rawValue));
         }
 

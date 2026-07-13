@@ -14,6 +14,7 @@ import {
   Divider,
   Row,
   Col,
+  Upload,
 } from 'antd';
 import {
   PlusOutlined,
@@ -21,7 +22,9 @@ import {
   DeleteOutlined,
   ExperimentOutlined,
   MinusCircleOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
+import * as XLSX from 'xlsx';
 import { useSearchParams, useOutletContext } from 'react-router-dom';
 import { schemeApi, type SchemeVO } from '../../api/scheme';
 import { riskGroupApi, type RiskGroupVO } from '../../api/riskGroup';
@@ -52,6 +55,10 @@ const CONDITION_TYPES = [
   { label: '逾期天数范围', value: '逾期天数范围' },
   { label: '舆情事件', value: '舆情事件' },
   { label: '行业代码', value: '行业代码' },
+  { label: '产品类型', value: '产品类型' },
+  { label: '客户名称', value: '客户名称' },
+  { label: '客户名称列表', value: '客户名称列表' },
+  { label: 'EAD均值比', value: 'EAD均值比' },
 ];
 
 const OPERATORS_BY_TYPE: Record<string, { label: string; value: string }[]> = {
@@ -86,6 +93,26 @@ const OPERATORS_BY_TYPE: Record<string, { label: string; value: string }[]> = {
     { label: '属于', value: 'in' },
     { label: '不属于', value: 'not_in' },
   ],
+  '产品类型': [
+    { label: '=', value: 'eq' },
+    { label: '!=', value: 'ne' },
+    { label: '属于', value: 'in' },
+    { label: '不属于', value: 'not_in' },
+  ],
+  '客户名称': [
+    { label: '包含关键词', value: 'contains' },
+  ],
+  '客户名称列表': [
+    { label: '属于', value: 'in' },
+    { label: '不属于', value: 'not_in' },
+  ],
+  'EAD均值比': [
+    { label: '>', value: 'gt' },
+    { label: '>=', value: 'gte' },
+    { label: '<', value: 'lt' },
+    { label: '<=', value: 'lte' },
+    { label: '=', value: 'eq' },
+  ],
 };
 
 const FIVE_CATEGORY_OPTIONS = [
@@ -104,6 +131,8 @@ const TEST_FIELD_OPTIONS = [
   { label: '行业分类 (industry)', value: 'industry' },
   { label: '资产状态 (assetStatus)', value: 'assetStatus' },
   { label: '是否不良 (isNpl)', value: 'isNpl' },
+  { label: '客户名称 (customerName)', value: 'customerName' },
+  { label: 'EAD均值 (eadAvg)', value: 'eadAvg' },
 ];
 
 let _rowKeySeed = 0;
@@ -160,6 +189,25 @@ function serializeConditions(rows: ConditionRow[]): string {
     if (row.type === '违约标识') {
       return { type: row.type, operator: row.operator, value: row.operator === '是' };
     }
+    if (row.type === '客户名称') {
+      return { type: row.type, operator: 'contains', value: String(row.value ?? '') };
+    }
+    if (row.type === '客户名称列表') {
+      const vals = Array.isArray(row.value) ? row.value : (typeof row.value === 'string' ? row.value.split(',').map((s) => s.trim()).filter(Boolean) : []);
+      return { type: row.type, operator: row.operator, values: vals };
+    }
+    if (row.type === 'EAD均值比') {
+      const numVal = Number(row.value);
+      return { type: row.type, operator: row.operator, value: (!isNaN(numVal) && numVal !== 0) ? numVal : 1.0 };
+    }
+    if (row.type === '产品类型') {
+      const v = String(row.value ?? '').trim();
+      if (row.operator === 'in' || row.operator === 'not_in') {
+        const parts = v.split(',').map((s) => s.trim()).filter(Boolean);
+        return { type: row.type, operator: row.operator, values: parts };
+      }
+      return { type: row.type, operator: row.operator, value: v };
+    }
     return { type: row.type, operator: row.operator, value: row.value };
   });
   return JSON.stringify({ logic: 'AND', conditions });
@@ -171,7 +219,8 @@ const ConditionBuilder: React.FC<{
   onChange: (rows: ConditionRow[]) => void;
   error?: boolean;
   industryOptions?: DictEntryVO[];
-}> = ({ value: rows = [], onChange, error, industryOptions = [] }) => {
+  productTypeOptions?: DictEntryVO[];
+}> = ({ value: rows = [], onChange, error, industryOptions = [], productTypeOptions = [] }) => {
   const addRow = () => {
     onChange([...rows, { key: genKey(), type: '逾期天数', operator: 'gte', value: '' }]);
   };
@@ -188,7 +237,7 @@ const ConditionBuilder: React.FC<{
       if (field === 'type') {
         const ops = OPERATORS_BY_TYPE[rawVal] || [];
         next.operator = ops[0]?.value || 'eq';
-        next.value = '';
+        next.value = rawVal === 'EAD均值比' ? '1.0' : '';
       }
       return next;
     });
@@ -220,6 +269,7 @@ const ConditionBuilder: React.FC<{
             const ops = getOperators(row.type);
             const isFiveCategory = row.type === '五级分类';
             const isIndustryCode = row.type === '行业代码';
+            const isProductType = row.type === '产品类型';
             const isDefaultFlag = row.type === '违约标识';
             return (
               <tr key={row.key}>
@@ -308,6 +358,107 @@ const ConditionBuilder: React.FC<{
                         size="small"
                       />
                     </Space>
+                  ) : isProductType ? (
+                    <Select
+                      mode="multiple"
+                      value={(() => {
+                        const v = row.value;
+                        if (Array.isArray(v)) return v;
+                        if (typeof v === 'string' && v.trim()) {
+                          if (row.operator === 'in' || row.operator === 'not_in') {
+                            return v.split(',').map(s => s.trim()).filter(Boolean);
+                          }
+                          return [v.trim()];
+                        }
+                        return [];
+                      })()}
+                      onChange={(v) => updateRow(row.key, 'value', v.join(','))}
+                      options={[
+                        ...productTypeOptions.map((d) => ({
+                          label: `${d.entryName}(${d.entryCode})`,
+                          value: d.entryCode || '',
+                        })),
+                      ]}
+                      style={{ width: '100%' }}
+                      size="small"
+                      placeholder="选择产品类型（多选）"
+                    />
+                  ) : row.type === '客户名称列表' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <Upload
+                        accept=".xlsx,.xls"
+                        showUploadList={false}
+                        beforeUpload={(file) => {
+                          const reader = new FileReader();
+                          reader.onload = (e) => {
+                            try {
+                              const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                              const workbook = XLSX.read(data, { type: 'array' });
+                              const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                              const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1 }) as any[][];
+                              const names: string[] = [];
+                              for (const row of json) {
+                                if (row && row.length > 0 && row[0] != null) {
+                                  const name = String(row[0]).trim();
+                                  if (name) names.push(name);
+                                }
+                              }
+                              const existing = (() => {
+                                const v = row.value;
+                                if (Array.isArray(v)) return v;
+                                if (typeof v === 'string' && v.trim()) return v.split(',').map(s => s.trim()).filter(Boolean);
+                                return [];
+                              })();
+                              const merged = [...new Set([...existing, ...names])];
+                              updateRow(row.key, 'value', merged.join(','));
+                              message.success(`成功导入 ${names.length} 个客户名称`);
+                            } catch (err) {
+                              message.error('Excel 解析失败: ' + (err as Error).message);
+                            }
+                          };
+                          reader.readAsArrayBuffer(file);
+                          return false;
+                        }}
+                      >
+                        <Button size="small" icon={<UploadOutlined />}>上传Excel</Button>
+                      </Upload>
+                      {(() => {
+                        const v = row.value;
+                        const names: string[] = [];
+                        if (Array.isArray(v)) names.push(...v);
+                        else if (typeof v === 'string' && v.trim()) {
+                          names.push(...v.split(',').map(s => s.trim()).filter(Boolean));
+                        }
+                        if (names.length === 0) return (
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>尚未上传客户名单</Typography.Text>
+                        );
+                        return (
+                          <div style={{ marginTop: 2 }}>
+                            <Typography.Text type="secondary" style={{ fontSize: 11 }}>共 {names.length} 个客户：</Typography.Text>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 2, maxHeight: 90, overflowY: 'auto' }}>
+                              {names.map((name, idx) => (
+                                <Tag
+                                  key={idx}
+                                  closable
+                                  onClose={() => {
+                                    const remaining = names.filter((_, i) => i !== idx);
+                                    updateRow(row.key, 'value', remaining.join(','));
+                                  }}
+                                  style={{ fontSize: 11, margin: 1 }}
+                                >{name}</Tag>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  ) : row.type === '客户名称' ? (
+                    <Input
+                      value={String(row.value ?? '')}
+                      onChange={(e) => updateRow(row.key, 'value', e.target.value)}
+                      placeholder="输入客户名称关键词"
+                      size="small"
+                    />
                   ) : (
                     <Input
                       value={String(row.value ?? '')}
@@ -380,6 +531,7 @@ const OverlayConfig: React.FC = () => {
   ]);
   const [testResult, setTestResult] = useState<OverlayMatchTestResp | null>(null);
   const [dictIndustry, setDictIndustry] = useState<DictEntryVO[]>([]);
+  const [dictProductType, setDictProductType] = useState<DictEntryVO[]>([]);
   const [testLoading, setTestLoading] = useState(false);
   const [selectedAdjustmentType, setSelectedAdjustmentType] = useState<string>('ADDBP');
 
@@ -389,8 +541,12 @@ const OverlayConfig: React.FC = () => {
       dictApi.getEffectiveEntries(selectedSchemeId, 'INDUSTRY').then((res) => {
         setDictIndustry((res.data as any)?.data || res.data || []);
       }).catch(console.error);
+      dictApi.getEffectiveEntries(selectedSchemeId, 'PRODUCT_TYPE').then((res) => {
+        setDictProductType((res.data as any)?.data || res.data || []);
+      }).catch(console.error);
     } else {
       setDictIndustry([]);
+      setDictProductType([]);
     }
   }, [selectedSchemeId]);
 
@@ -754,6 +910,7 @@ const OverlayConfig: React.FC = () => {
             <ConditionBuilder
               value={form.getFieldValue('_conditions') || []}
               onChange={(rows) => form.setFieldValue('_conditions', rows)}
+              productTypeOptions={dictProductType}
               industryOptions={dictIndustry}
             />
           </Form.Item>
