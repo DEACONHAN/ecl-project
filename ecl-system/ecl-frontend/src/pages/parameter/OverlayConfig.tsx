@@ -494,8 +494,10 @@ const OverlayConfig: React.FC = () => {
         fieldValues: fieldMap,
       });
       setTestResult((res.data as any)?.data || res.data);
-    } catch {
-      message.error('命中测试请求失败');
+    } catch (err: any) {
+      console.error('命中测试请求失败:', err);
+      const errMsg = err?.response?.data?.message || err?.message || '未知错误';
+      message.error('命中测试请求失败: ' + errMsg);
     } finally {
       setTestLoading(false);
     }
