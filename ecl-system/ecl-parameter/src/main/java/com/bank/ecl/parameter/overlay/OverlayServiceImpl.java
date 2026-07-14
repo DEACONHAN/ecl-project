@@ -179,10 +179,18 @@ public class OverlayServiceImpl implements OverlayService {
     @Override
     public OverlayMatchTestResp testMatch(OverlayMatchTestReq req) {
         // 1. 加载所有规则
-        List<OverlayRuleEntity> allRules = overlayRuleMapper.selectList(
-                new LambdaQueryWrapper<OverlayRuleEntity>()
-                        .eq(OverlayRuleEntity::getSchemeId, req.getSchemeId())
-                        .eq(OverlayRuleEntity::getGroupId, req.getGroupId()));
+        // 查询规则：groupId 为空时查询方案下所有规则
+        List<OverlayRuleEntity> allRules;
+        if (req.getGroupId() != null && !req.getGroupId().isBlank()) {
+            allRules = overlayRuleMapper.selectList(
+                    new LambdaQueryWrapper<OverlayRuleEntity>()
+                            .eq(OverlayRuleEntity::getSchemeId, req.getSchemeId())
+                            .eq(OverlayRuleEntity::getGroupId, req.getGroupId()));
+        } else {
+            allRules = overlayRuleMapper.selectList(
+                    new LambdaQueryWrapper<OverlayRuleEntity>()
+                            .eq(OverlayRuleEntity::getSchemeId, req.getSchemeId()));
+        }
 
         Map<String, Object> fieldValues = req.getFieldValues();
         if (fieldValues == null) {

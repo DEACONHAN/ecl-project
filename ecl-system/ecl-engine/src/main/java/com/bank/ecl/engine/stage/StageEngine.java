@@ -145,29 +145,47 @@ public class StageEngine implements EclEngine {
         }
 
         // ═══ Step 2: ROLLBACK 回跳校验 ═══
+        // 检查 FORWARD 目标阶段是否有对应的 ROLLBACK 规则：
+        //   - 无规则 → 路径不受限，允许回跳
+        //   - 有规则，条件+观察期都满足 → 允许回跳
+        //   - 有规则，条件或观察期不满足 → 退到 lastStage-1
 
         if (targetStage.ordinal() < lastStage.ordinal()) {
-            // 阶段改善，需要回跳校验
-            boolean rollbackAllowed = false;
+            // 查找从 lastStage → targetStage 的 ROLLBACK 规则
+            StageRuleEntity matchedRule = null;
             for (StageRuleEntity rule : rollbackRules) {
                 if (lastStage.name().equals(rule.getStageFrom())
                         && targetStage.name().equals(rule.getStageTo())) {
-                    if (StageConditionEvaluator.evaluate(rule.getConditions(), asset, crrDropMap)) {
-                        rollbackAllowed = true;
-                        break;
-                    }
+                    matchedRule = rule;
+                    break;
                 }
             }
 
-            if (!rollbackAllowed) {
-                // 禁止回跳，保持原阶段
-                log.debug("[6.2 Stage] asset {} rollback blocked: {} -> {} denied, staying at {}",
-                        asset.getAssetId(), lastStage, targetStage, lastStage);
-                return new StageResult(lastStage, "ROLLBACK_BLOCKED", true);
-            }
+            if (matchedRule != null) {
+                // 有规则，检查条件 + 观察期
+                boolean conditionMet = matchedRule.getConditions() != null
+                        ? StageConditionEvaluator.evaluate(matchedRule.getConditions(), asset, crrDropMap)
+                        : true;
+                boolean observationMet = matchedRule.getObservationDays() == null
+                        || asset.getNormalConsecutiveDays() == null
+                        || asset.getNormalConsecutiveDays() >= matchedRule.getObservationDays();
 
-            // 允许回跳，标记为正常判定
-            exceptionFlag = false;
+                if (conditionMet && observationMet) {
+                    // 条件和观察期都满足 → 允许回跳
+                    exceptionFlag = false;
+                } else {
+                    // 不满足 → 回退到 lastStage-1（改善路径的中间级）
+                    int fallbackOrdinal = Math.max(0, lastStage.ordinal() - 1);
+                    Stage fallbackStage = Stage.values()[fallbackOrdinal];
+                    log.debug("[6.2 Stage] asset {} rollback denied: {} -> {} failed, fallback to {}",
+                            asset.getAssetId(), lastStage, targetStage, fallbackStage);
+                    targetStage = fallbackStage;
+                    exceptionFlag = false;
+                }
+            } else {
+                // 无规则 → 路径不受限，允许回跳
+                exceptionFlag = false;
+            }
         }
 
         return new StageResult(targetStage, triggerType, exceptionFlag);

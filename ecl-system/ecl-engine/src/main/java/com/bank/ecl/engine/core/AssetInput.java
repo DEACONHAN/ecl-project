@@ -230,4 +230,7 @@ public class AssetInput {
 
     /** 选中规则 ID */
     private Long selectedOverlayId;
+
+    /** 同批次 EAD 均值（叠加引擎预计算，用于 EAD均值比 条件匹配） */
+    private double batchEadAvg;
 }

@@ -43,7 +43,17 @@ public class ConditionEvaluator {
             Map.entry("违约标识", "defaultFlag"),
             Map.entry("逾期天数范围", "overdueDays"),
             Map.entry("舆情事件", "otherRiskInfo"),
-            Map.entry("CRR 评级下降", "ratingDropLevels")
+            Map.entry("CRR 评级下降", "ratingDropLevels"),
+            Map.entry("是否不良", "isNpl"),
+            Map.entry("客户类型", "customerType"),
+            Map.entry("担保方式", "guaranteeType"),
+            Map.entry("资产状态", "assetStatus"),
+            Map.entry("行业分类", "industry"),
+            Map.entry("CRR评级", "crrRating"),
+            Map.entry("客户名称", "customerName"),
+            Map.entry("产品类型", "productType"),
+            Map.entry("客户名称列表", "customerName"),
+            Map.entry("EAD均值比", "eadAvg")
     );
 
     private ConditionEvaluator() {
@@ -166,7 +176,10 @@ public class ConditionEvaluator {
             return "in".equals(operator) ? found : !found;
         }
 
-        // 数值比较（逾期天数等）
+        // 数值比较（逾期天数等）：fieldValue 为 null 时不匹配
+        if (fieldValue == null) {
+            if ("gt".equals(operator) || "gte".equals(operator) || "lt".equals(operator) || "lte".equals(operator)) return false;
+        }
         if ("gt".equals(operator)) return compareNum(fieldValue, rawValue) > 0;
         if ("gte".equals(operator)) return compareNum(fieldValue, rawValue) >= 0;
         if ("lt".equals(operator)) return compareNum(fieldValue, rawValue) < 0;
@@ -191,8 +204,7 @@ public class ConditionEvaluator {
             return true;
         }
 
-        // 舆情事件
-        if ("contains".equals(operator) && type.equals("舆情事件")) {
+        if ("contains".equals(operator)) {
             return str(fieldValue).contains(str(rawValue));
         }
 
