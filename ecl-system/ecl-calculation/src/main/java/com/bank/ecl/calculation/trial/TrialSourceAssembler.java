@@ -167,6 +167,7 @@ public class TrialSourceAssembler {
         asset.setMaturityDate(loan.getLoanMaturityDt());
         asset.setCalcDate(loan.getReportDt() != null ? loan.getReportDt() : calcDate);
         asset.setOverdueDays(loan.getOverdueDays());
+        asset.setInterestRate(loan.getInterestRate());
         asset.setRepaymentSchedules(repaymentsByLoan.getOrDefault(loan.getId(), new ArrayList<>()));
         asset.setLastStage(historicalStagesByAsset.get(loan.getId()));
 

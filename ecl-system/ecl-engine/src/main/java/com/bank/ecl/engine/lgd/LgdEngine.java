@@ -106,10 +106,9 @@ public class LgdEngine implements EclEngine {
                 if (coll == null || coll.getAppraisalValue() == null) continue;
                 double appVal = coll.getAppraisalValue().doubleValue();
 
-                // Discount key: use collateralType (MORTGAGE/PLEDGE) as both category and type
-                // DB stores discount by "MORTGAGE|MORTGAGE", not "不动产|MORTGAGE"
+                // Discount key: category|type, matching buildDiscountCache() below (e.g. "不动产|房产")
                 String collType = coll.getCollateralType();
-                String discountKey = nullSafeKey(collType, collType);
+                String discountKey = nullSafeKey(coll.getCollateralCategory(), collType);
                 double discountRate = discountCache.getOrDefault(discountKey, 0.0); // 认可率,直接乘
 
                 // Find depreciation rate by (collateralType, yearOffset=0)
@@ -121,7 +120,7 @@ public class LgdEngine implements EclEngine {
                 double netValue = appVal * (1 + depreciationRate) * discountRate;
 
                 // Look up LGD for this collateral type within the pool's group
-                double collLgd = lookupLgdByType(groupId, collType, curveCache, defaultLgd);
+                double collLgd = lookupLgdByType(groupId, collType, firstAsset.getProductType(), curveCache, defaultLgd);
 
                 collValues.add(new double[]{netValue, collLgd});
             }
@@ -187,11 +186,18 @@ public class LgdEngine implements EclEngine {
         a.setLgdValue(lgd);
     }
 
-    private double lookupLgdByType(String groupId, String collType, Map<String, Double> cache, double defaultLgd) {
-        // Same key format as lookupLgdForGroup but with explicit collateral type
-        // Key: groupId|collateralType|  (ignoring productType)
-        String key = groupId + "|" + collType + "|";
-        Double lgd = cache.get(key);
+    private double lookupLgdByType(String groupId, String collType, String prodType, Map<String, Double> cache, double defaultLgd) {
+        // 1. exact match: groupId|collateralType|productType（productType 取自池内第一笔资产，池内曲线不区分资产）
+        String exactKey = groupId + "|" + collType + "|" + (prodType != null ? prodType : "");
+        Double lgd = cache.get(exactKey);
+
+        // 2. Fallback: 忽略 productType（兼容曲线中 productType 为空串的情况）
+        if (lgd == null) {
+            String fallbackKey = groupId + "|" + collType + "|";
+            lgd = cache.get(fallbackKey);
+        }
+
+        // 3. scheme default
         if (lgd == null) {
             lgd = defaultLgd;
         }

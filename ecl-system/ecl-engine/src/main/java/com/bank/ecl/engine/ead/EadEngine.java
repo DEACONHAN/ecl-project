@@ -68,6 +68,11 @@ public class EadEngine implements EclEngine {
 
         List<RepaymentScheduleInput> schedules = asset.getRepaymentSchedules();
         if (schedules != null && !schedules.isEmpty() && asset.getCalcDate() != null) {
+            // 优先用借据自身合同利率折现（IFRS9口径：应使用该金融工具自身实际利率，而非方案统一折现率）；
+            // 借据未填利率时，退回方案级 discountRate 兜底。
+            double effectiveRate = asset.getInterestRate() != null
+                    ? asset.getInterestRate().doubleValue() / 100.0
+                    : discountRate;
             double sum = 0.0;
             int futurePeriods = 0;
             for (RepaymentScheduleInput s : schedules) {
@@ -77,13 +82,13 @@ public class EadEngine implements EclEngine {
                     double interest = toDouble(s.getDueInterest());
                     double amount = principal + interest;
                     double years = calcYearsAct365(asset.getCalcDate(), s.getDueDate());
-                    double discounted = amount / Math.pow(1 + discountRate, years);
+                    double discounted = amount / Math.pow(1 + effectiveRate, years);
                     sum += discounted;
                     futurePeriods++;
                 }
             }
             asset.setOnBsEad(sum);
-            asset.setEadBreakdown("{\"futurePeriods\":" + futurePeriods + "}");
+            asset.setEadBreakdown("{\"futurePeriods\":" + futurePeriods + ",\"discountRate\":" + effectiveRate + "}");
         } else {
             double onBsEad = toDouble(asset.getOutstandingBalance()) + toDouble(asset.getAccruedInterest());
             asset.setOnBsEad(onBsEad);

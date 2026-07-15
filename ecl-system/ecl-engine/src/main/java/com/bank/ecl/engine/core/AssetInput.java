@@ -184,6 +184,9 @@ public class AssetInput {
     /** 承诺期限（天） */
     private Integer commitmentDays;
 
+    /** 合同利率(%)，用于表内EAD还款计划折现；为空时退回方案统一折现率 */
+    private BigDecimal interestRate;
+
     // ========== 6.4 EAD 计算引擎输出 ==========
 
     /** 表内 EAD */
