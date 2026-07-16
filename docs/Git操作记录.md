@@ -10,3 +10,6 @@
 | 2026-07-10 | push | `371e349` | → `origin/main`，`69894ae..371e349` | 绕开本地 `HTTPS_PROXY`/`HTTP_PROXY` 环境变量后重新推送（`env -u HTTPS_PROXY -u HTTP_PROXY -u https_proxy -u http_proxy git push`），带上前面的merge commit | ✅ 推送成功 |
 | 2026-07-10 | commit | `79e42ea` | `docs/Git操作记录.md`（新建） | 新建本记录文档并写入以上4条历史记录 | ✅ 提交成功 |
 | 2026-07-10 | push | `79e42ea` | → `origin/main`，`371e349..79e42ea` | 推送上述提交（同样绕开代理） | ✅ 推送成功 |
+| 2026-07-15 | commit | `f0c81df` | `TrialSourceAssembler.java`、`AssetInput.java`、`EadEngine.java`、`LgdEngine.java` | UAT测试(25~31笔样例)期间发现并修复3处bug：①押品池折价率查询key格式错误(细类配细类→改为大类配细类)导致押品净值恒为0；②押品池单件押品LGD查询未传产品类型导致永远查不到精确值，补充精确匹配+兜底两级查询；③EAD还款计划折现此前固定用方案统一discount_rate，未接入借据自身利率，新增`AssetInput.interestRate`字段并接入折现逻辑，优先用借据自身利率、缺失时退回方案统一值 | ✅ 提交成功 |
+| 2026-07-15 | push | `f0c81df` | → `origin/main`，`0814ff1..f0c81df` | 绕开本地代理环境变量后推送 | ✅ 推送成功 |
+| 2026-07-16 | commit | `6338428` | `LgdEngine.java` | 对照ECL方法论文档核实：押品覆盖部分(LGDsi)不该查风险分组维度的LGD曲线表(tbl_lgd_curve)，应按Floor LGD定价(方法论只分"现金/其它"两档)。原`lookupLgdByType()`删除，改为`lookupCollateralFloor(collType, lgdFloor)`：押品细类含"现金"→0%，其余统一取方案配置的`lgd_floor`下限值(原本传而不用的死参数，现在真正接入)；资产层级/未覆盖部分(LGDu)的曲线查询逻辑不变。曾先设计成新建`tbl_lgd_collateral_floor`表+新参数配置页tab的方案，用户认为只有2档取值没必要建表，改成现在这个更轻量的代码判断方案，未新建任何表/接口 | ✅ 提交成功 |
