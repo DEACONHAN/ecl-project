@@ -108,24 +108,29 @@ const BenchmarkCurveTab: React.FC<{
             : { collateralType: curve.collateralType, productType: curve.productType, lgdBaseValue: curve.lgdBaseValue }
         )
       : [...curves, { ...values, lgdBaseValue: +(values.lgdBaseValue / 100).toFixed(6), schemeId: selectedSchemeId, groupId: selectedGroupId, curveId: `tmp_${Date.now()}` }];
-    await lgdApi.batchSaveCurves(
-      selectedSchemeId,
-      selectedGroupId,
-      nextCurves.map((curve) => ({
-        collateralType: curve.collateralType,
-        productType: curve.productType,
-        lgdBaseValue: curve.lgdBaseValue,
-      })),
-    );
-    if (editing) {
-      message.success('更新成功');
-    } else {
-      message.success('创建成功');
+    try {
+      await lgdApi.batchSaveCurves(
+        selectedSchemeId,
+        selectedGroupId,
+        nextCurves.map((curve) => ({
+          collateralType: curve.collateralType,
+          productType: curve.productType,
+          lgdBaseValue: curve.lgdBaseValue,
+        })),
+      );
+      if (editing) {
+        message.success('更新成功');
+      } else {
+        message.success('创建成功');
+      }
+      setModalOpen(false);
+      setEditing(null);
+      form.resetFields();
+      load();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || '保存失败';
+      message.error(errMsg);
     }
-    setModalOpen(false);
-    setEditing(null);
-    form.resetFields();
-    load();
   };
 
   const handleDelete = (id: string) => {
@@ -138,17 +143,22 @@ const BenchmarkCurveTab: React.FC<{
           return;
         }
         const nextCurves = curves.filter((curve) => curve.curveId !== id);
-        await lgdApi.batchSaveCurves(
-          selectedSchemeId,
-          selectedGroupId,
-          nextCurves.map((curve) => ({
-            collateralType: curve.collateralType,
-            productType: curve.productType,
-            lgdBaseValue: curve.lgdBaseValue,
-          })),
-        );
-        message.success('已删除');
-        load();
+        try {
+          await lgdApi.batchSaveCurves(
+            selectedSchemeId,
+            selectedGroupId,
+            nextCurves.map((curve) => ({
+              collateralType: curve.collateralType,
+              productType: curve.productType,
+              lgdBaseValue: curve.lgdBaseValue,
+            })),
+          );
+          message.success('已删除');
+          load();
+        } catch (err: any) {
+          const errMsg = err?.response?.data?.message || err?.message || '删除失败';
+          message.error(errMsg);
+        }
       },
     });
   };
@@ -358,23 +368,28 @@ const CollateralDiscountTab: React.FC<{
             : { collateralCategory: item.collateralCategory, collateralType: item.collateralType, discountRate: item.discountRate }
         )
       : [...list, { collateralCategory: values.collateralCategory, collateralType: values.collateralType, discountRate: +(values.discountRate / 100).toFixed(4), schemeId: selectedSchemeId, discountId: `tmp_${Date.now()}` }];
-    await lgdApi.batchSaveDiscounts(
-      selectedSchemeId,
-      nextList.map((item) => ({
-        collateralCategory: item.collateralCategory,
-        collateralType: item.collateralType,
-        discountRate: item.discountRate,
-      })),
-    );
-    if (editing) {
-      message.success('更新成功');
-    } else {
-      message.success('创建成功');
+    try {
+      await lgdApi.batchSaveDiscounts(
+        selectedSchemeId,
+        nextList.map((item) => ({
+          collateralCategory: item.collateralCategory,
+          collateralType: item.collateralType,
+          discountRate: item.discountRate,
+        })),
+      );
+      if (editing) {
+        message.success('更新成功');
+      } else {
+        message.success('创建成功');
+      }
+      setModalOpen(false);
+      setEditing(null);
+      form.resetFields();
+      load();
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || '保存失败';
+      message.error(errMsg);
     }
-    setModalOpen(false);
-    setEditing(null);
-    form.resetFields();
-    load();
   };
 
   const handleDelete = (id: string) => {
@@ -383,16 +398,21 @@ const CollateralDiscountTab: React.FC<{
       content: '确定要删除这条押品折扣率吗？',
       onOk: async () => {
         const nextList = list.filter((item) => item.discountId !== id);
-        await lgdApi.batchSaveDiscounts(
-          selectedSchemeId,
-          nextList.map((item) => ({
-            collateralCategory: item.collateralCategory,
-            collateralType: item.collateralType,
-            discountRate: item.discountRate,
-          })),
-        );
-        message.success('已删除');
-        load();
+        try {
+          await lgdApi.batchSaveDiscounts(
+            selectedSchemeId,
+            nextList.map((item) => ({
+              collateralCategory: item.collateralCategory,
+              collateralType: item.collateralType,
+              discountRate: item.discountRate,
+            })),
+          );
+          message.success('已删除');
+          load();
+        } catch (err: any) {
+          const errMsg = err?.response?.data?.message || err?.message || '删除失败';
+          message.error(errMsg);
+        }
       },
     });
   };
